@@ -1,0 +1,8 @@
+2025-07-20 06:09:49,903 - app.core.database - INFO - Successfully connected to MongoDB
+2025-07-20 06:09:49,935 - app.core.database - INFO - Database indexes created successfully
+2025-07-20 06:10:58,677 - app.core.database - INFO - Successfully connected to MongoDB
+2025-07-20 06:10:58,693 - app.core.database - INFO - Database indexes created successfully
+2025-07-20 06:11:46,741 - mindmitra.middleware - INFO - Request started: GET /docs
+2025-07-20 06:11:46,742 - mindmitra.middleware - INFO - Request completed: GET /docs - 200
+2025-07-20 06:14:39,852 - app.core.database - INFO - Successfully connected to MongoDB
+2025-07-20 06:14:39,870 - app.core.database - INFO - Database indexes created successfully

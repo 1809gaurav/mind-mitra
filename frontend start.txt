@@ -1,0 +1,1 @@
+cd "C:\Users\DELL\Documents\projects\MInd Mitra\mindmitra-frontend" && npm run dev

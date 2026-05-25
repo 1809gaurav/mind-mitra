@@ -1,0 +1,1 @@
+source ~/mindmitra_env/bin/activate && sudo docker start mongodb && cd /mnt/c/Users/DELL/Documents/projects/MInd\ Mitra && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
