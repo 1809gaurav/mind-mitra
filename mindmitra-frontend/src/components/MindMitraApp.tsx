@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Send, Home, User, MessageCircle, BookOpen, AlertCircle, Settings, BarChart3, Heart, Moon, Sun } from 'lucide-react';
 import { sendChatMessage } from '../api/chat';
+import AuthScreen from './screens/AuthScreen';
 
 const MindMitraApp = () => {
   const [currentScreen, setCurrentScreen] = useState('splash');
@@ -53,7 +54,7 @@ const MindMitraApp = () => {
     }
   };
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (_email: string, _password: string) => {
     try {
       setLoading(true);
       // Mock login for now - integrate with your auth API
@@ -121,50 +122,13 @@ const MindMitraApp = () => {
     </div>
   );
 
-  const LoginScreen = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="text-4xl mb-4">🌊</div>
-            <h2 className="text-2xl font-bold text-gray-800">Welcome to MindMitra</h2>
-          </div>
-          <div className="space-y-4">
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={() => handleLogin(email, password)}
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50"
-            >
-              {loading ? 'Logging in...' : 'Login'}
-            </button>
-            <button className="w-full bg-white border-2 border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all duration-300">
-              Sign in with Google
-            </button>
-            <p className="text-center text-blue-500 text-sm cursor-pointer hover:underline">
-              Forgot password?
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const LoginScreen = () => (
+    <AuthScreen
+      onSignIn={handleLogin}
+      onRegister={(email, password) => handleLogin(email, password)}
+      loading={loading}
+    />
+  );
 
   const HomeScreen = () => (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
@@ -585,6 +549,10 @@ const MindMitraApp = () => {
     profile: <ProfileScreen />,
     trends: <TrendsScreen />
   };
+
+  if (currentScreen === 'login') {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="max-w-md mx-auto bg-white min-h-screen relative overflow-hidden">
