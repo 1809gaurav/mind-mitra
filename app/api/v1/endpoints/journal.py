@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models.journal import JournalEntry, JournalEntryCreate
+from app.models.journal import JournalEntry, JournalEntryCreate, analyze_emotion  # Added import here
 from app.api.v1.endpoints.auth import get_current_user
 
 def get_db():
@@ -27,14 +27,18 @@ router = APIRouter()
                             "user_id": 1,
                             "mood": 7,
                             "text": "Had a great day at work today!",
-                            "date": "2024-06-01T14:30:00Z"
+                            "date": "2024-06-01T14:30:00Z",
+                            "emotion": "Joy",
+                            "confidence_score": 0.95
                         },
                         {
                             "id": 2,
                             "user_id": 1,
                             "mood": 5,
                             "text": "Felt a bit stressed about deadlines",
-                            "date": "2024-05-31T21:00:00Z"
+                            "date": "2024-05-31T21:00:00Z",
+                            "emotion": "Fear",
+                            "confidence_score": 0.82
                         }
                     ]
                 }
@@ -64,7 +68,9 @@ def get_journal_entries(db: Session = Depends(get_db), current_user: User = Depe
                         "user_id": 1,
                         "mood": 8,
                         "text": "Today was amazing! I accomplished all my goals and felt very productive.",
-                        "date": "2024-06-02T18:45:00Z"
+                        "date": "2024-06-02T18:45:00Z",
+                        "emotion": "Joy",
+                        "confidence_score": 0.98
                     }
                 }
             }
@@ -101,8 +107,19 @@ def create_journal_entry(entry: JournalEntryCreate = Body(
 
     Response model: 'JournalEntry' 
     """
-    db_entry = JournalEntry(**entry.dict(), user_id=current_user.id)
+    # 1. Run the Hugging Face emotion analysis on the input text
+    detected_emotion, score = analyze_emotion(entry.text)
+    
+    # 2. Extract schema data as a dictionary
+    entry_data = entry.dict()
+    
+    # 3. Explicitly assign the calculated values to override defaults
+    entry_data["emotion"] = detected_emotion
+    entry_data["confidence_score"] = score
+    
+    # 4. Instantiate and save the database entry safely
+    db_entry = JournalEntry(**entry_data, user_id=current_user.id)
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    return db_entry 
+    return db_entry
