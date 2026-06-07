@@ -2,12 +2,16 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models.journal import JournalEntry, JournalEntryCreate
 from app.api.v1.endpoints.auth import get_current_user
+from app.models.user import User
+from typing import List
+from fastapi.encoders import jsonable_encoder
+
+# Import Redis Caching Helpers
+from app.services.cacheService import get_cache, set_cache, clear_cache
 
 def get_db():
     """Stub for SQLAlchemy compatibility in pre-existing journal endpoint"""
     yield None
-from app.models.user import User
-from typing import List
 
 router = APIRouter()
 
@@ -42,13 +46,27 @@ router = APIRouter()
         }
     }
 )
-def get_journal_entries(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_journal_entries(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Retrieve journal entries for the authenticated user.
     No paramteres to be manually entered to send request
 
     Response model: List['JournalEntry']
     """
-    return db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id).order_by(JournalEntry.date.desc()).all()
+    cache_key = f"user:{current_user.id}:journal_list"
+    
+    # 1. Look for data in Redis cache first
+    cached_journals = await get_cache(cache_key)
+    if cached_journals:
+        return cached_journals
+
+    # 2. Database query fallback
+    journals = db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id).order_by(JournalEntry.date.desc()).all()
+    
+    # 3. Convert SQLAlchemy models to JSON-friendly format and cache (TTL: 1 Hour)
+    serialized_journals = jsonable_encoder(journals)
+    await set_cache(cache_key, serialized_journals, ttl=3600)
+    
+    return journals
 
 @router.post(
     '/journal',
@@ -71,7 +89,7 @@ def get_journal_entries(db: Session = Depends(get_db), current_user: User = Depe
         }
     }
 )
-def create_journal_entry(entry: JournalEntryCreate = Body(
+async def create_journal_entry(entry: JournalEntryCreate = Body(
     ...,
     examples={
         "example1": {
@@ -105,4 +123,8 @@ def create_journal_entry(entry: JournalEntryCreate = Body(
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    return db_entry 
+    
+    # 4. Invalidate the journal list cache immediately so user doesn't get stale data
+    await clear_cache(f"user:{current_user.id}:journal_list")
+    
+    return db_entry
