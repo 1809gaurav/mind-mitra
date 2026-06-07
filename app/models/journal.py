@@ -100,3 +100,5 @@ class MoodHistoryResponse(BaseModel):
     average_mood: Optional[float] = None
     entries: List[MoodHistoryPoint]
 
+# Alias for backward compatibility with journal service
+JournalEntry = JournalEntryResponse

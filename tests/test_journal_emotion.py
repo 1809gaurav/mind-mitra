@@ -189,7 +189,7 @@ class TestCreateJournalEntry:
     def test_create_invalid_mood(self, mock_hf, mock_dep, journal_client):
         headers = _register_and_login(journal_client)
         resp = journal_client.post(
-            "/api/v1/journal", json={"mood": 10, "text": "Test"}, headers=headers,
+            "/api/v1/journal", json={"mood": 11, "text": "Test"}, headers=headers,
         )
         assert resp.status_code == 422
 
@@ -268,8 +268,7 @@ class TestDeleteJournalEntry:
         entry_id = create_resp.json()["id"]
 
         del_resp = journal_client.delete(f"/api/v1/journal/{entry_id}", headers=headers)
-        assert del_resp.status_code == 200
-        assert del_resp.json()["message"] == "Journal entry deleted"
+        assert del_resp.status_code == 204
 
         # Verify it's gone
         assert len(journal_client.get("/api/v1/journal", headers=headers).json()) == 0

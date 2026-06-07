@@ -31,9 +31,7 @@ class JournalService:
 
     @property
     def collection(self):
-        if self._collection is None:
-            self._collection = get_collection("journal_entries")
-        return self._collection
+        return get_collection("journal_entries")
 
     @staticmethod
     def _normalize_mood(doc: Dict[str, Any]) -> float:
@@ -65,6 +63,12 @@ class JournalService:
             mood=int(round(self._normalize_mood(doc))),
             text=self._normalize_text(doc),
             date=self._normalize_date(doc),
+            created_at=doc.get("created_at") or self._normalize_date(doc),
+            updated_at=doc.get("updated_at"),
+            emotion_label=doc.get("emotion_label"),
+            emotion_confidence=doc.get("emotion_confidence"),
+            emotion_scores=doc.get("emotion_scores"),
+            emotion_analyzed=doc.get("emotion_analyzed", False),
         )
 
     def _serialize_journal_entry(self, entry: JournalEntry) -> Dict[str, Any]:
