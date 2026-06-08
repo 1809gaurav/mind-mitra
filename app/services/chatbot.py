@@ -14,6 +14,8 @@ class ChatbotService:
     """CBT-based AI chatbot service"""
     
     def __init__(self):
+        self._chat_collection = None
+
         # CBT techniques and responses
         self.cbt_techniques = {
             "cognitive_restructuring": {
@@ -73,11 +75,13 @@ class ChatbotService:
                 "follow_up": "What triggered these feelings? How might you ground yourself in this moment?"
             }
         }
-    
+
     @property
-    def chat_Collection(self):
-        return get_collection("chat_history")
-    
+    def chat_collection(self):
+        if self._chat_collection is None:
+            self._chat_collection = get_collection("chat_history")
+        return self._chat_collection
+
     async def process_message(self, user_id: str, message_data: ChatMessageCreate) -> ChatResponse:
         """Process user message and generate CBT-based response"""
         try:

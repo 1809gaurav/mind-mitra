@@ -1,15 +1,22 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.core.database import init_db,close_db
+from app.core.database import init_db, close_db
+from app.core.redis import init_redis, close_redis, ping_redis
 from app.api.v1.api import api_router
 from app.core.logging import setup_logging
-from app.core.middleware import RequestLoggingMiddleware
+from app.core.middleware import RequestLoggingMiddleware, limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 
 tags_metadata = [
@@ -28,7 +35,19 @@ tags_metadata = [
     {
         "name": "journal",
         "description": "Journal management endpoints. These routes are protected and require authentication."
-    }
+    },
+    {
+        "name": "stats",
+        "description": "Mood history and analytics endpoints. These routes are protected and require authentication."
+    },
+    {
+        "name": "sos",
+        "description": "SOS emergency alert endpoints. Trigger alerts, check cooldown status, and view alert history."
+    },
+    {
+        "name": "user",
+        "description": "User management endpoints. Manage emergency contacts and profile settings."
+    },
 ]
 
 
@@ -37,12 +56,13 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     setup_logging()
+    Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    (Path(settings.UPLOAD_DIR) / "profile_pictures").mkdir(parents=True, exist_ok=True)
     await init_db()
+    await init_redis()
     yield
-    #disconnects when app stops
+    await close_redis()
     await close_db()
-    # Shutdown
-    # Cleanup resources if needed
 
 
 app = FastAPI(
@@ -54,6 +74,20 @@ app = FastAPI(
     lifespan=lifespan,
     openapi_tags=tags_metadata,
 )
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    retry_after = (exc.headers or {}).get("Retry-After", "60")
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=429,
+        headers={"Retry-After": retry_after},
+        content={"error": "rate_limit_exceeded", "message": f"Too many requests. Retry after {retry_after} seconds.", "retry_after": int(retry_after)}
+    )
 
 # Security middleware
 app.add_middleware(
@@ -76,6 +110,9 @@ app.add_middleware(RequestLoggingMiddleware)
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
 
+# Serve uploaded files (profile pictures, etc.)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+
 
 @app.get("/")
 async def root():
@@ -90,10 +127,12 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    redis_ok = await ping_redis()
     return {
         "status": "healthy",
         "service": "mindmitra-backend",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "redis": "connected" if redis_ok else "unavailable",
     }
 
 

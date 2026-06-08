@@ -53,8 +53,12 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     
-    # Redis (for Celery)
+    # Redis (caching and background tasks)
     REDIS_URL: str = "redis://localhost:6379"
+    CACHE_ENABLED: bool = True
+    CACHE_TTL_JOURNAL_LIST: int = 300
+    CACHE_TTL_MOOD_HISTORY: int = 900
+    CACHE_KEY_VERSION: str = "v1"
     
     # SOS Settings
     SOS_COOLDOWN_MINUTES: int = 30

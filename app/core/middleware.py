@@ -95,3 +95,25 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = "default-src 'self'"
         
         return response 
+    
+
+
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from app.core.config import settings
+
+def _get_storage_uri():
+    try:
+        import redis as redis_lib
+        r = redis_lib.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1)
+        r.ping()
+        return settings.REDIS_URL
+    except Exception:
+        return "memory://"
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=_get_storage_uri(),
+    default_limits=["200/minute"]
+)
