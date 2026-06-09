@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.models.journal import JournalEntry, JournalEntryCreate
 from app.core.database import get_db
@@ -39,14 +39,23 @@ router = APIRouter()
         }
     }
 )
-def get_journal_entries(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_journal_entries(limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)):
     """Retrieve journal entries for the authenticated user.
     No paramteres to be manually entered to send request
 
     Response model: List['JournalEntry']
     """
-    return db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id).order_by(JournalEntry.date.desc()).all()
-
+    return (
+    db.query(JournalEntry)
+    .filter(JournalEntry.user_id == current_user.id)
+    .order_by(JournalEntry.date.desc())
+    .offset(offset)
+    .limit(limit)
+    .all()
+)
 @router.post(
     '/journal',
     summary="Create a journal entry",
