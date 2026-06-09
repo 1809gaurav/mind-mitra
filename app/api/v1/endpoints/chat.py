@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel
 from app.services.chatbot import get_ai_response
-from app.services.auth import get_current_user
+from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 
 class ChatRequest(BaseModel):

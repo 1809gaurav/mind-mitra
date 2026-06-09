@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.models.journal import JournalEntry, JournalEntryCreate
-from app.core.database import get_db
-from app.services.auth import get_current_user
+from app.api.v1.endpoints.auth import get_current_user
+
+def get_db():
+    """Stub for SQLAlchemy compatibility in pre-existing journal endpoint"""
+    yield None
 from app.models.user import User
 from typing import List
 

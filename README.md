@@ -42,7 +42,7 @@ Backend (FastAPI)
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd mind-mitra-backend
+   cd mind-mitra
    ```
 
 2. **Create virtual environment**

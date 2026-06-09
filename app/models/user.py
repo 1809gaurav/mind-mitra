@@ -45,14 +45,16 @@ class UserInDB(UserBase):
 
 
 class User(BaseModel):
-    id: int
+    """Public user representation — no password fields exposed."""
+    id: str
     email: str
-    password_hash: str
     name: str
+    role: UserRole
+    is_active: bool = True
+    emergency_contacts: List[EmergencyContact] = []
     created_at: datetime
-
-    class Config:
-        orm_mode = True
+    updated_at: datetime
+    model_config = {"from_attributes": True}
 
 
 class Token(BaseModel):
