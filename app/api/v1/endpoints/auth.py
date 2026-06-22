@@ -69,6 +69,16 @@ async def get_current_admin(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
+async def get_current_therapist(current_user: User = Depends(get_current_user)) -> User:
+    """Require therapist role — raises 403 for non-therapist authenticated users."""
+    if current_user.role != UserRole.THERAPIST:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Therapist access required",
+        )
+    return current_user
+
+
 @router.post(
     "/register",
     summary="Register a new user",
