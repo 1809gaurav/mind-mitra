@@ -63,6 +63,8 @@ class JournalService:
             mood=int(round(self._normalize_mood(doc))),
             text=self._normalize_text(doc),
             date=self._normalize_date(doc),
+            sleep_hours=doc.get("sleep_hours"),
+            sleep_quality=doc.get("sleep_quality"),
             created_at=doc.get("created_at") or self._normalize_date(doc),
             updated_at=doc.get("updated_at"),
             emotion_label=doc.get("emotion_label"),
@@ -125,6 +127,7 @@ class JournalService:
         )
 
         points: List[MoodHistoryPoint] = []
+        sleep_values = []
         async for doc in cursor:
             points.append(
                 MoodHistoryPoint(
@@ -132,12 +135,17 @@ class JournalService:
                     mood=self._normalize_mood(doc),
                 )
             )
+            if doc.get("sleep_hours") is not None:
+                sleep_values.append(float(doc["sleep_hours"]))
 
         average_mood = round(sum(point.mood for point in points) / len(points), 2) if points else None
+        average_sleep_hours = (round(sum(sleep_values) / len(sleep_values), 2)if sleep_values else None
+)
         history = MoodHistoryResponse(
             user_id=user_id,
             period_days=days,
             average_mood=average_mood,
+            average_sleep_hours=average_sleep_hours,
             entries=points,
         )
         await cache_service.set_json(
@@ -160,6 +168,8 @@ class JournalService:
             "created_at": created_at,
             "updated_at": now,
             "date": created_at,
+            "sleep_hours": entry.sleep_hours,
+            "sleep_quality": entry.sleep_quality,
         }
         await self.collection.insert_one(doc)
         await self.invalidate_user_cache(user_id)
@@ -188,6 +198,10 @@ class JournalService:
         if updates.date is not None:
             update_fields["date"] = updates.date
             update_fields["created_at"] = updates.date
+        if updates.sleep_hours is not None:
+            update_fields["sleep_hours"] = updates.sleep_hours
+        if updates.sleep_quality is not None:
+           update_fields["sleep_quality"] = updates.sleep_quality
 
         await self.collection.update_one(
             {"id": entry_id, "user_id": user_id},

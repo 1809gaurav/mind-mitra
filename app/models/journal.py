@@ -23,6 +23,19 @@ class JournalEntryBase(BaseModel):
         description="Optional user-supplied date for the entry. "
         "Defaults to server time when not provided.",
     )
+    sleep_hours: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=24,
+        description="Hours slept before this journal entry."
+    )
+
+    sleep_quality: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=5,
+        description="Sleep quality rating from 1-5."
+    )
 
 
 class JournalEntryCreate(JournalEntryBase):
@@ -48,6 +61,17 @@ class JournalEntryUpdate(BaseModel):
         min_length=1,
         description="Updated journal text.",
     )
+    sleep_hours: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=24
+    )
+
+    sleep_quality: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=5
+)
     date: Optional[datetime] = None
 
 
@@ -97,8 +121,9 @@ class MoodHistoryResponse(BaseModel):
     user_id: str
     period_days: int
     average_mood: Optional[float] = None
+    average_sleep_hours: Optional[float] = None
     entries: List[MoodHistoryPoint]
-
+    
     model_config = {"from_attributes": True}
 
 

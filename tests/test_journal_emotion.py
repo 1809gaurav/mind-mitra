@@ -318,3 +318,30 @@ class TestDepressionFlagIntegration:
         )
 
         mock_dep.process_emotion.assert_not_called()
+    
+    @patch(
+    "app.api.v1.endpoints.journal.hf_emotion_service.analyze",
+    new_callable=AsyncMock,
+    )
+    def test_create_journal_with_sleep_fields(mock_analyze, journal_client):
+        mock_analyze.return_value = _mock_emotion_result()
+
+        headers = _register_and_login(journal_client)
+    
+        response = journal_client.post(
+            "/api/v1/journal",
+            json={
+                "mood": 8,
+                "text": "I feel good today",
+                "sleep_hours": 7.5,
+                "sleep_quality": 4
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["sleep_hours"] == 7.5
+        assert data["sleep_quality"] == 4
