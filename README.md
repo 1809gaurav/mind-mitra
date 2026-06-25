@@ -27,15 +27,14 @@ Backend (FastAPI)
 ```
 
 ## 🛠️ Tech Stack
-
-- **Framework**: FastAPI
-- **Database**: MongoDB with Motor (async)
-- **Authentication**: JWT with Firebase Auth
-- **File Storage**: Firebase Storage
-- **AI/ML**: Transformers, DeepFace, VADER
-- **Background Tasks**: Celery with Redis
-- **Messaging**: Twilio SMS, SMTP Email
-- **Real-time**: WebSocket support
+* **Framework:** ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat-square&logo=fastapi&logoColor=white)
+* **Database:** ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=flat-square&logo=mongodb&logoColor=white) **with Motor (async)**
+* **Authentication:** ![JWT](https://img.shields.io/badge/JWT-black?style=flat-square&logo=JSON%20web%20tokens) with ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Auth**
+* **File Storage:** ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Storage**
+* **AI/ML:** Transformers, DeepFace, VADER
+* **Background Tasks:** ![Celery](https://img.shields.io/badge/Celery-%2337814A.svg?style=flat-square&logo=celery&logoColor=white) with ![Redis](https://img.shields.io/badge/Redis-%23DD0031.svg?style=flat-square&logo=redis&logoColor=white)
+* **Messaging:** Twilio SMS, SMTP Email
+* **Real-time:** WebSocket support
 
 ## 📦 Installation
 
@@ -106,42 +105,55 @@ HUGGINGFACE_API_KEY=your-huggingface-key
 ## 📡 API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/refresh` - Refresh token
-- `GET /api/auth/profile` - Get user profile
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | User registration |
+| `POST` | `/api/auth/login` | User login |
+| `POST` | `/api/auth/refresh` | Refresh token |
+| `GET` | `/api/auth/profile` | Get user profile |
 
 ### Emotion Analysis
-- `POST /api/analyze/text` - Text sentiment analysis
-- `POST /api/analyze/audio` - Voice tone emotion detection
-- `POST /api/analyze/image` - Facial expression emotion detection
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/analyze/text` | Text sentiment analysis |
+| `POST` | `/api/analyze/audio` | Voice tone emotion detection |
+| `POST` | `/api/analyze/image` | Facial expression emotion detection |
 
 ### Chatbot
-- `POST /api/chatbot` - CBT-guided chatbot response
-- `GET /api/chatbot/history` - Chat history
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/chatbot` | CBT-guided chatbot response |
+| `GET` | `/api/chatbot/history` | Chat history |
 
 ### Journal
-- `GET /api/journal` - Get mood entries
-- `POST /api/journal` - Create mood entry
-- `PUT /api/journal/{entry_id}` - Update mood entry
-- `DELETE /api/journal/{entry_id}` - Delete mood entry
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/journal` | Get mood entries |
+| `POST` | `/api/journal` | Create mood entry |
+| `PUT` | `/api/journal/{entry_id}` | Update mood entry |
+| `DELETE` | `/api/journal/{entry_id}` | Delete mood entry |
 
 ### SOS System
-- `POST /api/sos/send` - Trigger SOS alert
-- `POST /api/sos/cancel` - Cancel SOS alert
-- `GET /api/sos/history` - SOS alert history
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/sos/send` | Trigger SOS alert |
+| `POST` | `/api/sos/cancel` | Cancel SOS alert |
+| `GET` | `/api/sos/history` | SOS alert history |
 
 ### User Management
-- `GET /api/user/profile` - Get user profile
-- `PUT /api/user/profile` - Update user profile
-- `GET /api/user/contacts` - Get emergency contacts
-- `POST /api/user/contacts` - Add emergency contact
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/user/profile` | Get user profile |
+| `PUT` | `/api/user/profile` | Update user profile |
+| `GET` | `/api/user/contacts` | Get emergency contacts |
+| `POST` | `/api/user/contacts` | Add emergency contact |
 
 ### Analytics
-- `GET /api/stats/mood-trends` - Emotional trend data
-- `GET /api/stats/engagement` - User engagement metrics
-- `GET /api/stats/alerts` - Alert statistics
-
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/stats/mood-trends` | Emotional trend data |
+| `GET` | `/api/stats/engagement` | User engagement metrics |
+| `GET` | `/api/stats/alerts` | Alert statistics |
 ## 🧠 AI Model Integration
 
 ### Text Sentiment Analysis
