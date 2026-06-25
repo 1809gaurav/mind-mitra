@@ -27,6 +27,9 @@ class EmotionAnalysisService:
         self.audio_classifier = None
         self.image_classifier = None
         
+        # Check if CUDA (GPU) is available to accelerate inference
+        self.device = 0 if torch.cuda.is_available() else -1
+        
         # Initialize models
         self._initialize_models()
     
@@ -37,26 +40,41 @@ class EmotionAnalysisService:
             self.text_classifier = pipeline(
                 "text-classification",
                 model="j-hartmann/emotion-english-distilroberta-base",
-                return_all_scores=True
+                return_all_scores=True,
+                device=self.device
             )
             logger.info("Text emotion model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load text emotion model: {e}")
         
         try:
-            # Audio emotion classification (placeholder - would need specific audio model)
-            logger.info("Audio emotion model placeholder initialized")
+            # Audio emotion classification (Wav2Vec2 fine-tuned on emotion datasets)
+            self.audio_classifier = pipeline(
+                "audio-classification",
+                model="ehsanaghaei/wav2vec2-base-Speech_Emotion_Recognition",
+                device=self.device
+            )
+            logger.info("Audio emotion model initialized successfully")
         except Exception as e:
             logger.error(f"Failed to load audio emotion model: {e}")
+
+        try:
+            # Image emotion classification (ViT fine-tuned on facial expressions)
+            self.image_classifier = pipeline(
+                "image-classification",
+                model="dima806/facial_emotions_image_detection",
+                device=self.device
+            )
+            logger.info("Image emotion model initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to load image emotion model: {e}")
     
     def analyze_text(self, text: str) -> TextAnalysisResponse:
         """Analyze text for emotions and sentiment"""
         try:
-            # VADER sentiment analysis
             vader_scores = self.sentiment_analyzer.polarity_scores(text)
             sentiment_score = vader_scores['compound']
             
-            # Determine sentiment label
             if sentiment_score >= 0.05:
                 sentiment = "positive"
             elif sentiment_score <= -0.05:
@@ -64,7 +82,6 @@ class EmotionAnalysisService:
             else:
                 sentiment = "neutral"
             
-            # Emotion classification using transformer model
             emotions = []
             if self.text_classifier:
                 try:
@@ -78,7 +95,6 @@ class EmotionAnalysisService:
                 except Exception as e:
                     logger.error(f"Text emotion classification failed: {e}")
             
-            # Fallback emotions based on sentiment
             if not emotions:
                 if sentiment == "positive":
                     emotions = [EmotionResult(label="happy", confidence=0.7, score=sentiment_score)]
@@ -87,7 +103,6 @@ class EmotionAnalysisService:
                 else:
                     emotions = [EmotionResult(label="neutral", confidence=0.7, score=sentiment_score)]
             
-            # Find dominant emotion
             dominant_emotion = max(emotions, key=lambda x: x.confidence)
             
             return TextAnalysisResponse(
@@ -100,7 +115,6 @@ class EmotionAnalysisService:
             
         except Exception as e:
             logger.error(f"Text analysis error: {e}")
-            # Return default response
             return TextAnalysisResponse(
                 emotions=[EmotionResult(label="neutral", confidence=0.5, score=0.0)],
                 sentiment="neutral",
@@ -112,17 +126,25 @@ class EmotionAnalysisService:
     def analyze_audio(self, audio_data: str, audio_format: str = "wav") -> AudioAnalysisResponse:
         """Analyze audio for emotion detection"""
         try:
-            # Decode base64 audio
             audio_bytes = base64.b64decode(audio_data)
-            audio_array, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=None)
+            # Force target sampling rate to 16kHz as required by most audio transformers
+            audio_array, sample_rate = librosa.load(io.BytesIO(audio_bytes), sr=16000)
             
-            # Extract audio features
+            # Keep feature extraction intact for API safety
             features = self._extract_audio_features(audio_array, sample_rate)
             
-            # Simple emotion classification based on features
-            emotions = self._classify_audio_emotion(features)
+            # Transformer-based classification
+            emotions = []
+            if self.audio_classifier:
+                model_outputs = self.audio_classifier(audio_array)
+                for out in model_outputs:
+                    # Map common naming conventions back to standard ones if necessary
+                    label = out['label'].lower()
+                    emotions.append(EmotionResult(label=label, confidence=out['score']))
             
-            # Find dominant emotion
+            if not emotions:
+                emotions = self._classify_audio_emotion(features)
+                
             dominant_emotion = max(emotions, key=lambda x: x.confidence)
             
             return AudioAnalysisResponse(
@@ -144,20 +166,48 @@ class EmotionAnalysisService:
     def analyze_image(self, image_data: str, image_format: str = "jpeg") -> ImageAnalysisResponse:
         """Analyze image for facial emotion detection"""
         try:
-            # Decode base64 image
             image_bytes = base64.b64decode(image_data)
-            image = Image.open(io.BytesIO(image_bytes))
+            pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            cv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
             
-            # Convert to OpenCV format
-            cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            emotions = []
+            face_detected = False
             
-            # Detect faces and emotions
-            emotions, face_detected = self._detect_facial_emotions(cv_image)
+            # Step 1: Detect bounding boxes of faces
+            gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
             
+            if len(faces) > 0:
+                face_detected = True
+                # Crop to the largest detected face for optimal transformer classification
+                largest_face = max(faces, key=lambda bounding_box: bounding_box[2] * bounding_box[3])
+                x, y, w, h = largest_face
+                
+                # Dynamic padding buffer around the face bounding box
+                pad_w, pad_h = int(w * 0.1), int(h * 0.1)
+                y1 = max(0, y - pad_h)
+                y2 = min(cv_image.shape[0], y + h + pad_h)
+                x1 = max(0, x - pad_w)
+                x2 = min(cv_image.shape[1], x + w + pad_w)
+                
+                face_crop = pil_image.crop((x1, y1, x2, y2))
+                
+                if self.image_classifier:
+                    model_outputs = self.image_classifier(face_crop)
+                    for out in model_outputs:
+                        emotions.append(EmotionResult(label=out['label'].lower(), confidence=out['score']))
+            
+            # Fallback if no faces detected or model failed
             if not emotions:
-                emotions = [EmotionResult(label="neutral", confidence=0.5)]
+                if self.image_classifier:
+                    # Process whole image as fallback
+                    model_outputs = self.image_classifier(pil_image)
+                    for out in model_outputs:
+                        emotions.append(EmotionResult(label=out['label'].lower(), confidence=out['score']))
+                else:
+                    emotions = [EmotionResult(label="neutral", confidence=0.5)]
             
-            # Find dominant emotion
             dominant_emotion = max(emotions, key=lambda x: x.confidence)
             
             return ImageAnalysisResponse(
@@ -186,17 +236,13 @@ class EmotionAnalysisService:
         audio_analysis = None
         image_analysis = None
         
-        # Analyze each modality
         if text:
             text_analysis = self.analyze_text(text)
-        
         if audio_data:
             audio_analysis = self.analyze_audio(audio_data)
-        
         if image_data:
             image_analysis = self.analyze_image(image_data)
         
-        # Combine results
         combined_emotion, combined_confidence, risk_level = self._combine_emotions(
             text_analysis, audio_analysis, image_analysis
         )
@@ -213,36 +259,27 @@ class EmotionAnalysisService:
     def _extract_audio_features(self, audio_array: np.ndarray, sample_rate: int) -> Dict[str, float]:
         """Extract audio features for emotion classification"""
         features = {}
-        
         try:
-            # Spectral features
             spectral_centroids = librosa.feature.spectral_centroid(y=audio_array, sr=sample_rate)[0]
             spectral_rolloff = librosa.feature.spectral_rolloff(y=audio_array, sr=sample_rate)[0]
-            
-            # MFCC features
             mfccs = librosa.feature.mfcc(y=audio_array, sr=sample_rate, n_mfcc=13)
-            
-            # Pitch features
             pitches, magnitudes = librosa.piptrack(y=audio_array, sr=sample_rate)
             
             features = {
                 "spectral_centroid_mean": float(np.mean(spectral_centroids)),
                 "spectral_rolloff_mean": float(np.mean(spectral_rolloff)),
                 "mfcc_mean": float(np.mean(mfccs)),
-                "pitch_mean": float(np.mean(pitches[magnitudes > 0.1])),
+                "pitch_mean": float(np.mean(pitches[magnitudes > 0.1])) if np.any(magnitudes > 0.1) else 0.0,
                 "energy": float(np.mean(librosa.feature.rms(y=audio_array)[0]))
             }
         except Exception as e:
             logger.error(f"Audio feature extraction error: {e}")
-        
         return features
     
     def _classify_audio_emotion(self, features: Dict[str, float]) -> List[EmotionResult]:
-        """Classify emotions based on audio features"""
+        """Classify emotions based on audio features (Fallback Method)"""
         emotions = []
-        
         try:
-            # Simple rule-based classification
             energy = features.get("energy", 0)
             pitch = features.get("pitch_mean", 0)
             
@@ -254,71 +291,24 @@ class EmotionAnalysisService:
                 emotions.append(EmotionResult(label="anxious", confidence=0.6))
             else:
                 emotions.append(EmotionResult(label="neutral", confidence=0.5))
-                
         except Exception as e:
             logger.error(f"Audio emotion classification error: {e}")
             emotions.append(EmotionResult(label="neutral", confidence=0.5))
-        
         return emotions
-    
-    def _detect_facial_emotions(self, image: np.ndarray) -> tuple[List[EmotionResult], bool]:
-        """Detect facial emotions using OpenCV and basic image processing"""
-        emotions = []
-        face_detected = False
-        
-        try:
-            # Convert to grayscale
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Load face cascade
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            
-            # Detect faces
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-            
-            if len(faces) > 0:
-                face_detected = True
-                
-                # Simple emotion classification based on face region
-                for (x, y, w, h) in faces:
-                    face_roi = gray[y:y+h, x:x+w]
-                    
-                    # Basic features (placeholder for more sophisticated analysis)
-                    brightness = np.mean(face_roi)
-                    
-                    if brightness > 150:
-                        emotions.append(EmotionResult(label="happy", confidence=0.6))
-                    elif brightness < 100:
-                        emotions.append(EmotionResult(label="sad", confidence=0.6))
-                    else:
-                        emotions.append(EmotionResult(label="neutral", confidence=0.5))
-            
-            if not emotions:
-                emotions.append(EmotionResult(label="neutral", confidence=0.5))
-                
-        except Exception as e:
-            logger.error(f"Facial emotion detection error: {e}")
-            emotions.append(EmotionResult(label="neutral", confidence=0.5))
-        
-        return emotions, face_detected
-    
+
     def _combine_emotions(self, text_analysis: Optional[TextAnalysisResponse],
                          audio_analysis: Optional[AudioAnalysisResponse],
                          image_analysis: Optional[ImageAnalysisResponse]) -> tuple[str, float, str]:
         """Combine emotions from multiple modalities"""
-        
         emotions = []
         confidences = []
         
-        # Collect emotions from each modality
         if text_analysis:
             emotions.append(text_analysis.dominant_emotion)
             confidences.append(text_analysis.confidence)
-        
         if audio_analysis:
             emotions.append(audio_analysis.dominant_emotion)
             confidences.append(audio_analysis.confidence)
-        
         if image_analysis:
             emotions.append(image_analysis.dominant_emotion)
             confidences.append(image_analysis.confidence)
@@ -326,7 +316,6 @@ class EmotionAnalysisService:
         if not emotions:
             return "neutral", 0.5, "low"
         
-        # Find most common emotion
         emotion_counts = {}
         for emotion in emotions:
             emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
@@ -334,17 +323,16 @@ class EmotionAnalysisService:
         combined_emotion = max(emotion_counts, key=emotion_counts.get)
         combined_confidence = np.mean(confidences) if confidences else 0.5
         
-        # Determine risk level
-        negative_emotions = ["sad", "angry", "anxious", "depressed"]
+        negative_emotions = ["sad", "angry", "anxious", "depressed", "fear", "disgust"]
         if combined_emotion in negative_emotions and combined_confidence > 0.7:
             risk_level = "high"
         elif combined_emotion in negative_emotions and combined_confidence > 0.5:
             risk_level = "medium"
         else:
             risk_level = "low"
-        
+            
         return combined_emotion, combined_confidence, risk_level
 
 
 # Global emotion analysis service instance
-emotion_service = EmotionAnalysisService() 
+emotion_service = EmotionAnalysisService()
