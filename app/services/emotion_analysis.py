@@ -34,18 +34,18 @@ class EmotionAnalysisService:
         self._initialize_models()
     
     def _initialize_models(self):
-        """Initialize AI models"""
+        """Initialize AI models with multilingual support"""
         try:
-            # Text classification model (emotion detection)
+            # Swap to a multilingual model
             self.text_classifier = pipeline(
                 "text-classification",
-                model="j-hartmann/emotion-english-distilroberta-base",
+                model="cardiffnlp/twitter-xlm-roberta-base-sentiment", # Multilingual sentiment
                 return_all_scores=True,
                 device=self.device
             )
-            logger.info("Text emotion model loaded successfully")
+            logger.info("Multilingual text emotion model loaded successfully")
         except Exception as e:
-            logger.error(f"Failed to load text emotion model: {e}")
+            logger.error(f"Failed to load multilingual model: {e}")
         
         try:
             # Audio emotion classification (Wav2Vec2 fine-tuned on emotion datasets)
@@ -70,39 +70,49 @@ class EmotionAnalysisService:
             logger.error(f"Failed to load image emotion model: {e}")
     
     def analyze_text(self, text: str) -> TextAnalysisResponse:
-        """Analyze text for emotions and sentiment"""
+        """Analyze text for emotions and sentiment using multilingual transformer"""
         try:
-            vader_scores = self.sentiment_analyzer.polarity_scores(text)
-            sentiment_score = vader_scores['compound']
-            
-            if sentiment_score >= 0.05:
-                sentiment = "positive"
-            elif sentiment_score <= -0.05:
-                sentiment = "negative"
-            else:
-                sentiment = "neutral"
-            
+            # 1. Initialize result variables
             emotions = []
+            sentiment = "neutral"
+            sentiment_score = 0.0
+            
+            # 2. Use the multilingual transformer
             if self.text_classifier:
                 try:
-                    emotion_results = self.text_classifier(text)[0]
-                    for result in emotion_results:
+                    # Model returns a list of results (e.g., LABEL_0, LABEL_1, LABEL_2)
+                    results = self.text_classifier(text)[0]
+                    
+                    # Mapping for cardiffnlp/twitter-xlm-roberta-base-sentiment
+                    label_map = {"LABEL_0": "negative", "LABEL_1": "neutral", "LABEL_2": "positive"}
+                    
+                    # Process results
+                    for res in results:
+                        label = label_map.get(res['label'], "neutral")
+                        score = res['score']
+                        
+                        # Add to list of emotions
                         emotions.append(EmotionResult(
-                            label=result['label'],
-                            confidence=result['score'],
-                            score=sentiment_score
+                            label=label,
+                            confidence=score,
+                            score=0.0  # sentiment_score is handled separately
                         ))
+                    
+                    # Determine sentiment based on the highest confidence label
+                    dominant_res = max(results, key=lambda x: x['score'])
+                    sentiment = label_map.get(dominant_res['label'], "neutral")
+                    sentiment_score = dominant_res['score'] if sentiment == "positive" else (-dominant_res['score'] if sentiment == "negative" else 0.0)
+
                 except Exception as e:
                     logger.error(f"Text emotion classification failed: {e}")
             
+            # 3. Fallback logic if model fails or returns empty
             if not emotions:
-                if sentiment == "positive":
-                    emotions = [EmotionResult(label="happy", confidence=0.7, score=sentiment_score)]
-                elif sentiment == "negative":
-                    emotions = [EmotionResult(label="sad", confidence=0.7, score=sentiment_score)]
-                else:
-                    emotions = [EmotionResult(label="neutral", confidence=0.7, score=sentiment_score)]
+                emotions = [EmotionResult(label="neutral", confidence=0.7, score=0.0)]
+                sentiment = "neutral"
+                sentiment_score = 0.0
             
+            # 4. Determine dominant emotion
             dominant_emotion = max(emotions, key=lambda x: x.confidence)
             
             return TextAnalysisResponse(
