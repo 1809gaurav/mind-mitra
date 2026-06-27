@@ -35,7 +35,11 @@ tags_metadata = [
     {
         "name": "journal",
         "description": "Journal management endpoints. These routes are protected and require authentication."
-    }
+    },
+    {
+        "name": "reminder",
+        "description": "reminder management endpoints"
+    },
 ]
  
 
@@ -144,4 +148,5 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.DEBUG,
         log_level="info"
-    ) 
+    )    
+    

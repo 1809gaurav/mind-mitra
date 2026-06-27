@@ -65,6 +65,9 @@ async def create_indexes():
         await database.depression_flags.create_index([("user_id", 1), ("created_at", -1)])
         await database.depression_flags.create_index("created_at")
         
+        
+        await database.device_tokens.create_index("user_id", unique=True)
+        
         logger.info("Database indexes created successfully")
         
     except Exception as e:

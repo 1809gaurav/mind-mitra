@@ -16,19 +16,67 @@ class NotificationService:
 
     def __init__(self):
         self.twilio_client = None
+        self._firebase_initialized = False
         self._initialize_twilio()
+        self._initialize_firebase()
 
     def _initialize_twilio(self):
         """Initialize Twilio client for SMS"""
         try:
             if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
                 from twilio.rest import Client
-                self.twilio_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+                self.twilio_client = Client(
+                    settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN
+                )
                 logger.info("Twilio client initialized successfully")
             else:
                 logger.warning("Twilio credentials not configured")
         except Exception as e:
             logger.error(f"Failed to initialize Twilio: {e}")
+
+    def _initialize_firebase(self):
+        """Initialize Firebase Admin SDK for push notifications"""
+        try:
+            if (
+                not settings.FIREBASE_PROJECT_ID
+                or settings.FIREBASE_PROJECT_ID.startswith("your-")
+            ):
+                logger.info(
+                    "Firebase credentials not configured, push notifications disabled"
+                )
+                return
+
+            if not settings.FIREBASE_PRIVATE_KEY or not settings.FIREBASE_CLIENT_EMAIL:
+                logger.info(
+                    "Firebase credentials incomplete, push notifications disabled"
+                )
+                return
+
+            import firebase_admin
+            from firebase_admin import credentials
+
+            firebase_config = {
+                "type": "service_account",
+                "project_id": settings.FIREBASE_PROJECT_ID,
+                "private_key_id": settings.FIREBASE_PRIVATE_KEY_ID,
+                "private_key": settings.FIREBASE_PRIVATE_KEY.replace("\\n", "\n")
+                if settings.FIREBASE_PRIVATE_KEY
+                else None,
+                "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                "client_id": settings.FIREBASE_CLIENT_ID,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }
+
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred)
+            self._firebase_initialized = True
+            logger.info("Firebase Admin SDK initialized successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase: {e}")
+            self._firebase_initialized = False
 
     async def send_sms(self, to: str, message: str) -> bool:
         """Send SMS via Twilio"""
@@ -43,9 +91,7 @@ class NotificationService:
 
             # Send SMS
             message_obj = self.twilio_client.messages.create(
-                body=message,
-                from_=settings.TWILIO_PHONE_NUMBER,
-                to=to
+                body=message, from_=settings.TWILIO_PHONE_NUMBER, to=to
             )
 
             logger.info(f"SMS sent successfully: {message_obj.sid}")
@@ -55,25 +101,29 @@ class NotificationService:
             logger.error(f"Failed to send SMS: {e}")
             return False
 
-    async def send_email(self, to: str, subject: str, message: str, html_message: Optional[str] = None) -> bool:
+    async def send_email(
+        self, to: str, subject: str, message: str, html_message: Optional[str] = None
+    ) -> bool:
         """Send email via SMTP"""
         try:
-            if not all([settings.SMTP_USERNAME, settings.SMTP_PASSWORD, settings.SMTP_SERVER]):
+            if not all(
+                [settings.SMTP_USERNAME, settings.SMTP_PASSWORD, settings.SMTP_SERVER]
+            ):
                 logger.warning("SMTP configuration incomplete")
                 return False
 
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = settings.SMTP_USERNAME
-            msg['To'] = to
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = settings.SMTP_USERNAME
+            msg["To"] = to
 
             # Add text and HTML parts
-            text_part = MIMEText(message, 'plain')
+            text_part = MIMEText(message, "plain")
             msg.attach(text_part)
 
             if html_message:
-                html_part = MIMEText(html_message, 'html')
+                html_part = MIMEText(html_message, "html")
                 msg.attach(html_part)
 
             # Send email
@@ -91,19 +141,74 @@ class NotificationService:
             logger.error(f"Failed to send email: {e}")
             return False
 
-    async def send_push_notification(self, user_id: str, title: str, message: str, data: Optional[dict] = None) -> bool:
+    async def send_push_notification(
+        self, user_id: str, title: str, message: str, data: Optional[dict] = None
+    ) -> bool:
         """Send push notification via Firebase Cloud Messaging"""
         try:
-            # This would integrate with Firebase Cloud Messaging
-            # For now, just log the notification
-            logger.info(f"Push notification for user {user_id}: {title} - {message}")
+            if not self._firebase_initialized:
+                logger.warning(
+                    f"Firebase not configured, logging push notification for user {user_id}: {title} - {message}"
+                )
+                return True
+
+            from app.core.database import get_collection
+
+            tokens_col = get_collection("device_tokens")
+            token_doc = await tokens_col.find_one({"user_id": user_id})
+
+            if not token_doc or not token_doc.get("token"):
+                logger.warning(f"No device token found for user {user_id}")
+                return False
+
+            from firebase_admin import messaging
+
+            notification = messaging.Notification(title=title, body=message)
+            android_config = messaging.AndroidConfig(
+                priority="high",
+                notification=messaging.AndroidNotification(
+                    title=title,
+                    body=message,
+                    click_action="OPEN_ACTIVITY",
+                ),
+            )
+            apns_config = messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(title=title, body=message),
+                        sound="default",
+                    )
+                )
+            )
+
+            fcm_message = messaging.Message(
+                notification=notification,
+                android=android_config,
+                apns=apns_config,
+                data=data or {},
+                token=token_doc["token"],
+            )
+
+            response = messaging.send(fcm_message)
+            logger.info(f"Push notification sent to user {user_id}: {response}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to send push notification: {e}")
+            logger.error(f"Failed to send push notification to user {user_id}: {e}")
             return False
 
-    async def send_emergency_notification(self, user_name: str, severity: str, reason: Optional[str] = None) -> bool:
+    async def send_mood_checkin_reminder(self, user_id: str, user_name: str) -> bool:
+        """Send a mood check-in reminder push notification"""
+        return await self.send_push_notification(
+            user_id=user_id,
+            title="MindMitra Check-in",
+            message=f"Hi {user_name}! How are you feeling today? Take a moment to log your mood.",
+            data={"type": "mood_reminder", "user_id": user_id},
+        )
+
+    async def send_emergency_notification(
+        self, user_name: str, severity: str, reason: Optional[str] = None
+    ) -> bool:
         """Send emergency notification template"""
         try:
             subject = f"URGENT: {user_name} Emergency Alert"
@@ -166,7 +271,7 @@ class NotificationService:
                 to=user_email,
                 subject=subject,
                 message=f"Welcome to MindMitra, {user_name}!",
-                html_message=html_message
+                html_message=html_message,
             )
 
         except Exception as e:
@@ -244,12 +349,8 @@ The MindMitra Team
         try:
             subject = "MindMitra: We're here for you"
 
-            resources_text = "\n".join(
-                f"- {resource}" for resource in resources
-            )
-            resources_html = "".join(
-                f"<li>{resource}</li>" for resource in resources
-            )
+            resources_text = "\n".join(f"- {resource}" for resource in resources)
+            resources_html = "".join(f"<li>{resource}</li>" for resource in resources)
 
             message = f"""Hi {user_name},
 
@@ -287,9 +388,7 @@ The MindMitra Team
             )
 
         except Exception as e:
-            logger.error(
-                f"Failed to send depression threshold user email: {e}"
-            )
+            logger.error(f"Failed to send depression threshold user email: {e}")
             return False
 
     async def send_depression_threshold_contact_email(
@@ -305,12 +404,8 @@ The MindMitra Team
         try:
             subject = f"MindMitra: A gentle check-in about {user_name}"
 
-            resources_text = "\n".join(
-                f"- {resource}" for resource in resources
-            )
-            resources_html = "".join(
-                f"<li>{resource}</li>" for resource in resources
-            )
+            resources_text = "\n".join(f"- {resource}" for resource in resources)
+            resources_html = "".join(f"<li>{resource}</li>" for resource in resources)
 
             message = f"""Hi {contact_name},
 
@@ -349,9 +444,7 @@ The MindMitra Team
             )
 
         except Exception as e:
-            logger.error(
-                f"Failed to send depression threshold contact email: {e}"
-            )
+            logger.error(f"Failed to send depression threshold contact email: {e}")
             return False
 
     async def send_daily_reminder(self, user_email: str, user_name: str) -> bool:
@@ -380,9 +473,7 @@ The MindMitra Team
             """
 
             return await self.send_email(
-                to=user_email,
-                subject=subject,
-                message=message
+                to=user_email, subject=subject, message=message
             )
 
         except Exception as e:
