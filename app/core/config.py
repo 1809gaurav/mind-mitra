@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     
     # Redis (caching and background tasks)
     REDIS_URL: str = "redis://localhost:6379"
+
+    # Celery
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+
     CACHE_ENABLED: bool = True
     CACHE_TTL_JOURNAL_LIST: int = 300
     CACHE_TTL_MOOD_HISTORY: int = 900

@@ -10,12 +10,16 @@ Depression-flag bookkeeping is performed on every request so that
 threshold notifications can be triggered when warranted.
 """
 
+import datetime
+
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Dict, Optional
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.logging import get_logger
+from app.models.emotion_log import EmotionLog
+from app.services.emotion_log import emotion_log_service
 from app.models.user import User
 from app.services.depression_flags import depression_flag_service
 from app.services.huggingface_emotion import hf_emotion_service
@@ -208,6 +212,18 @@ async def detect_emotion(
                 _FALLBACK_EMOTION,
                 _FALLBACK_CONFIDENCE,
             )
+    
+    if request.text:
+        try:
+            await emotion_log_service.save_log(
+                user_id=current_user.id,
+                source="text",
+                dominant_emotion=emotion,
+                emotions=emotion_scores or {},
+                sentiment_score=confidence
+            )
+        except Exception:
+            logger.exception("Failed to save emotion log")
 
     # ------------------------------------------------------------------
     # Image-based emotion analysis (not yet implemented)

@@ -8,7 +8,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Global database client
-client: Optional[AsyncIOMotorClient] = None
+client: Optional[AsyncIOMotorClient] = None # type: ignore
 database = None
 
 
@@ -64,7 +64,12 @@ async def create_indexes():
         await database.depression_flags.create_index("user_id")
         await database.depression_flags.create_index([("user_id", 1), ("created_at", -1)])
         await database.depression_flags.create_index("created_at")
-        
+
+        # Emotion logs indexes
+        await database.emotion_logs.create_index("user_id")
+        await database.emotion_logs.create_index([("user_id", 1), ("timestamp", -1)])
+        await database.emotion_logs.create_index("timestamp")
+        await database.emotion_logs.create_index("dominant_emotion")
         
         await database.device_tokens.create_index("user_id", unique=True)
         

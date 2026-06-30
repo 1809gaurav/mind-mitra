@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -40,6 +41,10 @@ tags_metadata = [
         "name": "reminder",
         "description": "reminder management endpoints"
     },
+    {
+        "name": "report",
+        "description": "Provides the report [pdf] for past 7 days on [mood_trend, cbt_sessions, journals]"
+    }
 ]
  
 
@@ -104,6 +109,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 # Serve uploaded files (profile pictures, etc.)
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 
