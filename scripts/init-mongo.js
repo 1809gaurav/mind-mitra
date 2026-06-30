@@ -84,6 +84,23 @@ db.createCollection("chat_history", {
     }
 });
 
+db.createCollection("depression_flags", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["id", "user_id", "emotion", "created_at"],
+            properties: {
+                id: { bsonType: "string" },
+                user_id: { bsonType: "string" },
+                emotion: { bsonType: "string" },
+                confidence: { bsonType: "double" },
+                source: { bsonType: "string" },
+                created_at: { bsonType: "date" }
+            }
+        }
+    }
+});
+
 db.createCollection("emergency_contacts", {
     validator: {
         $jsonSchema: {
@@ -117,6 +134,15 @@ db.sos_alerts.createIndex({ "status": 1 });
 db.chat_history.createIndex({ "user_id": 1 });
 db.chat_history.createIndex({ "user_id": 1, "created_at": -1 });
 
+db.depression_flags.createIndex({ "user_id": 1 });
+db.depression_flags.createIndex({ "user_id": 1, "created_at": -1 });
+db.depression_flags.createIndex({ "created_at": 1 });
+
 db.emergency_contacts.createIndex({ "user_id": 1 });
+
+db.createCollection("password_reset_tokens");
+db.password_reset_tokens.createIndex({ "token_hash": 1 }, { unique: true });
+db.password_reset_tokens.createIndex({ "user_id": 1 });
+db.password_reset_tokens.createIndex({ "expires_at": 1 }, { expireAfterSeconds: 0 });
 
 print("MindMitra database initialized successfully!"); 

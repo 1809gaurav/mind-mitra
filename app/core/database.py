@@ -8,7 +8,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Global database client
-client: Optional[AsyncIOMotorClient] = None
+client: Optional[AsyncIOMotorClient] = None # type: ignore
 database = None
 
 
@@ -46,6 +46,7 @@ async def create_indexes():
         await database.journal_entries.create_index("user_id")
         await database.journal_entries.create_index([("user_id", 1), ("created_at", -1)])
         await database.journal_entries.create_index("created_at")
+        await database.journal_entries.create_index([("user_id", 1), ("emotion_label", 1)])
         
         # SOS alerts indexes
         await database.sos_alerts.create_index("user_id")
@@ -58,6 +59,19 @@ async def create_indexes():
         
         # Emergency contacts indexes
         await database.emergency_contacts.create_index("user_id")
+
+        # Depression flags indexes
+        await database.depression_flags.create_index("user_id")
+        await database.depression_flags.create_index([("user_id", 1), ("created_at", -1)])
+        await database.depression_flags.create_index("created_at")
+
+        # Emotion logs indexes
+        await database.emotion_logs.create_index("user_id")
+        await database.emotion_logs.create_index([("user_id", 1), ("timestamp", -1)])
+        await database.emotion_logs.create_index("timestamp")
+        await database.emotion_logs.create_index("dominant_emotion")
+        
+        await database.device_tokens.create_index("user_id", unique=True)
         
         # Exercises indexes
         await database.exercises.create_index("id", unique=True)
@@ -94,4 +108,11 @@ def get_collection(collection_name: str):
     """Get collection instance"""
     if database is None:
         raise RuntimeError("Database not initialized")
-    return database[collection_name] 
+    return database[collection_name]
+
+
+def get_db():
+    """Dependency returning the database instance"""
+    if database is None:
+        raise RuntimeError("Database not initialized")
+    return database 

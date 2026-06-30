@@ -6,6 +6,14 @@ from app.models.chatbot import ChatMessage, ChatMessageCreate, ChatResponse
 from app.core.database import get_collection
 from app.core.logging import get_logger
 from app.services.emotion_analysis import emotion_service
+from langdetect import detect, LangDetectException
+
+# Helper to add inside ChatbotService class
+def _detect_language(self, text: str) -> str:
+    try:
+        return detect(text)
+    except LangDetectException:
+        return 'en' # Default to English if detection fails
 
 logger = get_logger("chatbot")
 
@@ -14,28 +22,28 @@ class ChatbotService:
     """CBT-based AI chatbot service"""
     
     def __init__(self):
-        self.chat_collection = get_collection("chat_history")
-        
+        self._chat_collection = None
+
         # CBT techniques and responses
         self.cbt_techniques = {
             "cognitive_restructuring": {
                 "name": "Cognitive Restructuring",
                 "description": "Identify and challenge negative thoughts",
                 "questions": [
-                    "What evidence supports this thought?",
-                    "What evidence contradicts this thought?",
-                    "What would you tell a friend in this situation?",
-                    "How might you view this differently in a week or month?"
+                    "What facts or signs support this thought?",
+                    "What facts or signs contradict this thought?",
+                    "What would you tell your friend in this situation?",
+                    "How might you view these thoughts differently in a week or month?"
                 ]
             },
             "behavioral_activation": {
                 "name": "Behavioral Activation",
                 "description": "Increase positive activities and behaviors",
                 "questions": [
-                    "What activities used to bring you joy?",
+                    "What are the activities which you usually used to enjoy?",
                     "What small step could you take today?",
                     "How might you reward yourself for trying?",
-                    "What would make today a little better?"
+                    "What activity would make today a little better?"
                 ]
             },
             "mindfulness": {
@@ -43,8 +51,8 @@ class ChatbotService:
                 "description": "Practice present-moment awareness",
                 "questions": [
                     "What are you noticing right now?",
-                    "Can you describe your current emotions without judgment?",
-                    "What physical sensations do you feel?",
+                    "Can you describe your current emotions without any judgment?",
+                    "What physical sensations do you feel right now?",
                     "How might you ground yourself in this moment?"
                 ]
             },
@@ -53,7 +61,7 @@ class ChatbotService:
                 "description": "Break down problems into manageable steps",
                 "questions": [
                     "What specific problem are you facing?",
-                    "What are your options for addressing this?",
+                    "What options do you have for addressing this problem?",
                     "What's the smallest step you could take?",
                     "How might you know if a solution is working?"
                 ]
@@ -63,7 +71,7 @@ class ChatbotService:
         # Crisis responses
         self.crisis_responses = {
             "suicidal": {
-                "immediate": "I'm concerned about what you're sharing. Your life has value, and help is available. Please call the National Suicide Prevention Lifeline at 988 or text HOME to 741741 to reach the Crisis Text Line. You're not alone.",
+                "immediate": "I'm concerned about what you're sharing. Your life has value, and help is available. Please call the National Suicide Prevention Lifeline at 988 or text HOME to 741741 to reach the Crisis Text Line. You are not alone.",
                 "follow_up": "It's important to talk to someone who can provide professional support. Would you be willing to reach out to a mental health professional or trusted person in your life?"
             },
             "self_harm": {
@@ -71,27 +79,40 @@ class ChatbotService:
                 "follow_up": "What might help you feel safer right now? Is there someone you trust who you could talk to?"
             },
             "panic": {
-                "immediate": "I can see you're feeling very overwhelmed. Let's take a moment to breathe together. Try taking slow, deep breaths - inhale for 4 counts, hold for 4, exhale for 4. You're safe right now.",
+                "immediate": "I can see you're feeling very overwhelmed. Let's take a moment to breathe together. Try taking slow, deep breaths - inhale for 4 counts, hold for 4, exhale for 4. You are safe right now.",
                 "follow_up": "What triggered these feelings? How might you ground yourself in this moment?"
             }
         }
-    
+
+    @property
+    def chat_collection(self):
+        if self._chat_collection is None:
+            self._chat_collection = get_collection("chat_history")
+        return self._chat_collection
+
     async def process_message(self, user_id: str, message_data: ChatMessageCreate) -> ChatResponse:
         """Process user message and generate CBT-based response"""
         try:
-            # Analyze message for emotions
+            # 1. Detect language (NEW)
+            lang = self._detect_language(message_data.content)
+            
+            # 2. Analyze message for emotions
             emotion_analysis = emotion_service.analyze_text(message_data.content)
             
-            # Check for crisis indicators
+            # 3. Check for crisis indicators
             crisis_response = self._check_crisis_indicators(message_data.content, emotion_analysis)
             if crisis_response:
-                return await self._create_crisis_response(user_id, message_data, crisis_response)
+                # We pass 'lang' here to potentially translate the crisis response too
+                return await self._create_crisis_response(user_id, message_data, crisis_response, lang)
             
-            # Determine appropriate CBT technique
+            # 4. Determine appropriate CBT technique
             technique = self._select_cbt_technique(emotion_analysis)
             
-            # Generate response
-            response_content = self._generate_cbt_response(message_data.content, technique, emotion_analysis)
+            # 5. Generate response (Passing 'lang' for multilingual output)
+            response_content = self._generate_cbt_response(message_data.content, technique, emotion_analysis, lang)
+            
+            # 6. Generate suggestions (Passing 'lang')
+            suggestions = self._generate_suggestions(technique, emotion_analysis, lang)
             
             # Create response message
             response_message = await self._create_chat_message(
@@ -108,9 +129,8 @@ class ChatbotService:
                 is_user=True,
                 emotion_data=emotion_analysis.dict()
             )
-            
-            # Generate suggestions
-            suggestions = self._generate_suggestions(technique, emotion_analysis)
+
+    
             
             return ChatResponse(
                 message=response_message,
@@ -175,72 +195,58 @@ class ChatbotService:
         else:
             return "problem_solving"  # Neutral - focus on practical solutions
     
-    def _generate_cbt_response(self, user_message: str, technique: str, emotion_analysis) -> str:
-        """Generate CBT-based response"""
+    def _generate_cbt_response(self, user_message: str, technique: str, emotion_analysis, lang: str = "en") -> str:
+        """Generate CBT-based response with language support"""
         technique_info = self.cbt_techniques[technique]
         
-        # Personalized response based on technique
-        if technique == "cognitive_restructuring":
-            response = f"I notice you're feeling {emotion_analysis.dominant_emotion}. "
-            response += "Let's explore the thoughts behind these feelings. "
+        if lang == "hi":
+            if technique == "cognitive_restructuring":
+                response = f"मैं देख रहा हूँ कि आप {emotion_analysis.dominant_emotion} महसूस कर रहे हैं। आइए इन विचारों को चुनौती दें। "
+            elif technique == "behavioral_activation":
+                response = "मैं समझ सकता हूँ कि आप संघर्ष कर रहे हैं। छोटे कदम बहुत मदद कर सकते हैं। "
+            elif technique == "mindfulness":
+                response = "लगता है आप बहुत तीव्र भावनाएं महसूस कर रहे हैं। आइए इस पल को महसूस करें। "
+            else:
+                response = "मैं देख सकता हूँ कि आप एक कठिन स्थिति से गुजर रहे हैं। आइए इसे छोटे हिस्सों में बाँटें। "
             response += technique_info["questions"][0]
-        
-        elif technique == "behavioral_activation":
-            response = "I hear that you're struggling right now. "
-            response += "Sometimes small actions can help shift our mood. "
-            response += technique_info["questions"][0]
-        
-        elif technique == "mindfulness":
-            response = "It sounds like you're experiencing some intense emotions. "
-            response += "Let's take a moment to observe what's happening. "
-            response += technique_info["questions"][0]
-        
-        else:  # problem_solving
-            response = "I can see you're dealing with a challenging situation. "
-            response += "Let's break this down into manageable pieces. "
+        else:
+            if technique == "cognitive_restructuring":
+                response = f"I notice you're feeling {emotion_analysis.dominant_emotion}. Let us explore the thoughts behind these feelings. "
+            elif technique == "behavioral_activation":
+                response = "I hear that you are struggling right now. Sometimes small actions can help shift our mood a lot. "
+            elif technique == "mindfulness":
+                response = "It sounds like you're experiencing some intense emotions. Let's take a moment to observe what is happening. "
+            else:
+                response = "I can see you're dealing with a challenging situation. Let's break this down into small, manageable pieces. "
             response += technique_info["questions"][0]
         
         return response
     
-    def _generate_suggestions(self, technique: str, emotion_analysis) -> List[str]:
-        """Generate follow-up suggestions"""
-        technique_info = self.cbt_techniques[technique]
-        suggestions = []
-        
-        # Add technique-specific suggestions
-        if technique == "cognitive_restructuring":
-            suggestions.extend([
-                "Write down your thoughts and challenge them",
-                "Look for evidence that contradicts negative thoughts",
-                "Consider alternative perspectives"
-            ])
-        elif technique == "behavioral_activation":
-            suggestions.extend([
-                "Schedule one enjoyable activity today",
-                "Start with a 5-minute activity",
-                "Track your mood before and after activities"
-            ])
-        elif technique == "mindfulness":
-            suggestions.extend([
-                "Try a 3-minute breathing exercise",
-                "Notice 5 things you can see, hear, feel",
-                "Practice non-judgmental observation"
-            ])
+    def _generate_suggestions(self, technique: str, emotion_analysis, lang: str = "en") -> List[str]:
+        """Generate follow-up suggestions with language support"""
+        if lang == "hi":
+            if technique == "cognitive_restructuring":
+                return ["अपने विचारों को लिखें और उन्हें चुनौती दें - सोचें कि क्या वे 100% सच हैं।", "ऐसे तथ्य खोजें जो आपके नकारात्मक विचारों को गलत साबित करें।", "पीछे हटें और सोचें: आप अपने किसी करीबी दोस्त को क्या सलाह देंगे?"]
+            elif technique == "behavioral_activation":
+                return ["आज कोई 1 सुखद गतिविधि चुनें।", "छोटी शुरुआत करें: कोई भी गतिविधि चुनें और उसे केवल 5 मिनट के लिए करें।", "अपनी भावनाओं पर ध्यान दें: गतिविधि से पहले और बाद में अपने मूड को ट्रैक करें।"]
+            elif technique == "mindfulness":
+                return ["3 मिनट का गहरा सांस लेने का व्यायाम करें।", "अपने चारों ओर देखें और 5 ऐसी चीजें बताएं जिन्हें आप देख, सुन और महसूस कर सकते हैं।", "बिना किसी निर्णय के अभी महसूस हो रही भावनाओं को देखें।"]
+            else:
+                return ["समस्या को छोटे-छोटे हिस्सों में बांटें।", "अपने विकल्पों की सूची बनाएं और उनके फायदे/नुकसान का विश्लेषण करें।", "अभी अपने लिए 1 आसान, प्राप्त करने योग्य लक्ष्य निर्धारित करें।"]
         else:
-            suggestions.extend([
-                "Break the problem into smaller steps",
-                "List your options and their pros/cons",
-                "Set a small, achievable goal"
-            ])
-        
-        # Add general wellness suggestions
-        suggestions.extend([
-            "Consider talking to a mental health professional",
-            "Reach out to a trusted friend or family member",
-            "Practice self-care activities"
-        ])
-        
-        return suggestions[:5]  # Limit to 5 suggestions
+            # Keep your existing English list logic here
+            technique_info = self.cbt_techniques[technique]
+            suggestions = []
+            if technique == "cognitive_restructuring":
+                suggestions.extend(["Write down your thoughts and challenge them.", "Look for facts that prove negative thoughts wrong.", "What would you tell a friend?"])
+            elif technique == "behavioral_activation":
+                suggestions.extend(["Pick 1 enjoyable activity to do today.", "Start small: 5 minutes.", "Track your mood."])
+            elif technique == "mindfulness":
+                suggestions.extend(["Try deep breathing.", "5-4-3-2-1 technique.", "Observe emotions without judgment."])
+            else:
+                suggestions.extend(["Break the problem down.", "Analyze pros/cons.", "Set an achievable goal."])
+            suggestions.extend(["Chat with a mental health professional.", "Reach out to a trusted friend.", "Do an activity that brings comfort."])
+            return suggestions[:5]
     
     async def _create_crisis_response(self, user_id: str, message_data: ChatMessageCreate, crisis_response: Dict[str, str]) -> ChatResponse:
         """Create crisis response"""
@@ -311,10 +317,10 @@ class ChatbotService:
 def get_ai_response(message: str) -> str:
     # Dummy AI response for now
     responses = [
-        "I understand how you're feeling. Can you tell me more about what's troubling you?",
-        "That sounds challenging. Let's work through this together. What thoughts are going through your mind?",
+        "I understand how you are feeling. Can you tell me more about what's troubling you?",
+        "That sounds challenging. Let's work through this together. What thoughts are going through your mind right now?",
         "Thank you for sharing. Have you noticed any patterns in when these feelings occur?",
-        "I'm here to support you. What coping strategies have helped you in the past?"
+        "I'm here to support you. What coping strategies have helped you with these felings in the past?"
     ]
     import random
     return random.choice(responses)

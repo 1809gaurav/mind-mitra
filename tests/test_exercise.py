@@ -31,6 +31,12 @@ async def mock_get_current_user():
 
 
 @pytest.fixture(autouse=True)
+def clean_collections():
+    # Override global clean_collections to do nothing for these tests
+    yield
+
+
+@pytest.fixture(autouse=True)
 def setup_db():
     # Setup test database connection
     mongo_client = MongoClient(settings.MONGODB_URL)

@@ -16,9 +16,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+    FRONTEND_URL: str = "http://localhost:5173"
     
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]
     ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1"]
     
     # Database
@@ -51,17 +53,33 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     
-    # Redis (for Celery)
+    # Redis (caching and background tasks)
     REDIS_URL: str = "redis://localhost:6379"
+
+    # Celery
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+
+    CACHE_ENABLED: bool = True
+    CACHE_TTL_JOURNAL_LIST: int = 300
+    CACHE_TTL_MOOD_HISTORY: int = 900
+    CACHE_KEY_VERSION: str = "v1"
     
     # SOS Settings
     SOS_COOLDOWN_MINUTES: int = 30
     CRITICAL_EMOTION_THRESHOLD: float = 0.8
-    DEPRESSION_FLAG_THRESHOLD: int = 3  # Number of depressed flags in 24h
+    DEPRESSION_FLAG_THRESHOLD: int = 3
+    DEPRESSION_FLAG_WINDOW_HOURS: int = 24
+    DEPRESSION_FLAG_EMOTIONS: List[str] = [
+        "depressed", "sad", "hopeless", "anxious", "fearful", "angry"
+    ]
     
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 10
     
     class Config:
         env_file = ".env"
