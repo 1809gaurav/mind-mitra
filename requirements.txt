@@ -35,3 +35,4 @@ flake8==6.1.0
 mypy==1.7.1 
 sqlalchemy
 slowapi==0.1.9
+prometheus-fastapi-instrumentator

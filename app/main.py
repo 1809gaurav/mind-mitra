@@ -1,16 +1,17 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.config import settings
-from app.core.database import init_db, close_db
+from app.core.database import init_db, close_db, check_db_health
 from app.core.redis import init_redis, close_redis, ping_redis
 from app.api.v1.api import api_router
 from app.core.logging import setup_logging
@@ -112,6 +113,9 @@ app.include_router(api_router, prefix="/api/v1")
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
+# Prometheus Metrics
+Instrumentator().instrument(app).expose(app)
+
 
 @app.get("/")
 async def root():
@@ -124,14 +128,19 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint"""
+async def health_check(response: Response):
+    """Health check endpoint checking DB and Redis connections"""
+    db_ok = await check_db_health()
     redis_ok = await ping_redis()
+    
+    is_healthy = db_ok and redis_ok
+    if not is_healthy:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        
     return {
-        "status": "healthy",
-        "service": "mindmitra-backend",
-        "version": "1.0.0",
-        "redis": "connected" if redis_ok else "unavailable",
+        "status": "ok" if is_healthy else "error",
+        "db": "connected" if db_ok else "disconnected",
+        "redis": "connected" if redis_ok else "disconnected"
     }
 
 
