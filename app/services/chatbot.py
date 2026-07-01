@@ -143,19 +143,60 @@ class ChatbotService:
             return await self._create_fallback_response(user_id, message_data)
     
     async def get_chat_history(self, user_id: str, page: int = 1, size: int = 50) -> List[ChatMessage]:
-        """Get chat history for user"""
+        """Return a paginated list of chat messages for the given user.
+
+        Messages are sorted newest-first so the most recent exchange appears
+        on page 1.
+
+        Args:
+            user_id: The ID of the authenticated user whose history to fetch.
+            page:    1-indexed page number (default 1).
+            size:    Number of messages per page (default 50).
+
+        Returns:
+            A list of ChatMessage objects.  Returns an empty list if no
+            messages exist or if a database error occurs.
+        """
         try:
+            # Calculate the number of documents to skip for the requested page.
+            # e.g. page=2, size=20 → skip the first 20 documents.
             skip = (page - 1) * size
-            cursor = self.chat_collection.find(
-                {"user_id": user_id}
-            ).sort("created_at", -1).skip(skip).limit(size)
-            
+
+            cursor = (
+                self.chat_collection
+                .find({"user_id": user_id})
+                .sort("created_at", -1)
+                .skip(skip)
+                .limit(size)
+            )
+
             messages = []
             async for doc in cursor:
-                messages.append(ChatMessage(**doc))
-            
+                try:
+                    # ── Fix: handle documents without an explicit "id" field ──
+                    # The legacy chat endpoint used insert_many() without
+                    # generating a UUID, so those docs only have MongoDB's
+                    # internal "_id".  We use it as a fallback identifier.
+                    if not doc.get("id"):
+                        doc["id"] = str(doc.get("_id", ""))
+
+                    # Remove the MongoDB-internal key before handing to Pydantic
+                    # (Pydantic doesn't know about "_id" and would raise an error).
+                    doc.pop("_id", None)
+
+                    # Supply defaults for fields that legacy messages may lack
+                    doc.setdefault("message_type", "text")
+                    doc.setdefault("emotion_data", {})
+
+                    messages.append(ChatMessage(**doc))
+                except Exception as parse_err:
+                    # Skip any malformed document so one bad record doesn't
+                    # break the entire history response.
+                    logger.warning(f"Skipping malformed chat document: {parse_err}")
+                    continue
+
             return messages
-            
+
         except Exception as e:
             logger.error(f"Error getting chat history: {e}")
             return []
