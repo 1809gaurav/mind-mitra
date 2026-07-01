@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import auth
-from app.api.v1.endpoints import journal, chat, emotion, admin, stats, sos, user, therapist, analyze, reports
+from app.api.v1.endpoints import journal, chat, emotion, admin, stats, sos, user, therapist, analyze, reports, exercise
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(sos.router, prefix="/sos", tags=["sos"])
 api_router.include_router(user.router, prefix="/user", tags=["user"])
 api_router.include_router(therapist.router, prefix="/therapist", tags=["therapist"])
 api_router.include_router(reports.router, prefix="/report", tags=["report"])
+api_router.include_router(exercise.router, prefix="/exercises", tags=["exercise"])
