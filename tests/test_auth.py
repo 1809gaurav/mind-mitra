@@ -8,11 +8,15 @@ client = TestClient(app)
 
 def test_health_check():
     """Test health check endpoint"""
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
-    assert data["service"] == "mindmitra-backend"
+    from unittest.mock import patch
+    with patch("app.main.check_db_health", return_value=True), \
+         patch("app.main.check_redis_health", return_value=True):
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["db"] == "connected"
+        assert data["redis"] == "connected"
 
 
 def test_root_endpoint():

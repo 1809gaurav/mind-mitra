@@ -83,4 +83,17 @@ def get_collection(collection_name: str):
     """Get collection instance"""
     if database is None:
         raise RuntimeError("Database not initialized")
-    return database[collection_name] 
+    return database[collection_name]
+
+
+async def check_db_health() -> bool:
+    """Check database connection health"""
+    global client
+    if client is None:
+        return False
+    try:
+        await client.admin.command('ping')
+        return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False 
