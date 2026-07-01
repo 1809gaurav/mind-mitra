@@ -40,6 +40,7 @@ export interface JournalEntryCreate {
 export interface JournalEntryUpdate {
   mood?: number;
   text?: string;
+  date?: string | null;
 }
 
 export interface PaginationMeta {
@@ -91,18 +92,26 @@ const authHeaders = (token: string) => ({
 });
 
 /**
- * Fetch journal entries with pagination
+ * Fetch journal entries with pagination and optional date filters
  * @param token Auth token
  * @param limit Number of entries per page (default: 20)
  * @param offset Starting position (default: 0)
+ * @param startDate Filter from date (optional)
+ * @param endDate Filter to date (optional)
  */
 export const fetchJournalEntries = async (
   token: string,
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
+  startDate?: string,
+  endDate?: string
 ): Promise<JournalListResponse> => {
+  let url = `/api/v1/journal?limit=${limit}&offset=${offset}`;
+  if (startDate) url += `&start_date=${startDate}`;
+  if (endDate) url += `&end_date=${endDate}`;
+
   const response = await fetch(
-    `/api/v1/journal?limit=${limit}&offset=${offset}`,
+    url,
     {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -122,6 +131,7 @@ export const fetchJournalEntries = async (
 
   return response.json();
 };
+
 /** Create a new journal entry (emotion analysis happens server-side) */
 export const saveJournalEntry = async (entry: JournalEntryCreate, token: string) =>
   axios.post<JournalEntryResponse>('/api/v1/journal', entry, authHeaders(token));

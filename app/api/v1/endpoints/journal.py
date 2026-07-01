@@ -30,6 +30,7 @@ from app.services.journal import journal_service
 logger = get_logger("journal")
 router = APIRouter()
 
+<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -122,22 +123,26 @@ async def list_journal_entries(
     response: Response,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),  
+    start_date: Optional[datetime] = Query(default=None),
+    end_date: Optional[datetime] = Query(default=None),
     current_user: User = Depends(get_current_user),
 ) -> List[JournalEntryResponse]:
     """Retrieve journal entries for the authenticated user."""
-    cache_key = journal_list_cache_key(current_user.id)
-    cached = await cache_service.get_json(cache_key)
-    if cached is not None:
-        response.headers["X-Cache"] = "HIT"
-        # Since cache contains basic models, we will load full response from db
-        # Actually cache might not have emotion fields.
-        pass
+    query = {"user_id": current_user.id}
+    
+    date_filter = {}
+    if start_date:
+        date_filter["$gte"] = start_date
+    if end_date:
+        date_filter["$lte"] = end_date
+    if date_filter:
+        query["date"] = date_filter
     
     # We fetch directly from DB to include emotion fields if they were missed by cache
     collection = get_collection("journal_entries")
-    total_count = await collection.count_documents({"user_id": current_user.id}) #counting total entries
+    total_count = await collection.count_documents(query) #counting total entries
     cursor = (
-        collection.find({"user_id": current_user.id})
+        collection.find(query)
         .sort("created_at", -1)
         .skip(offset)
         .limit(limit)
@@ -237,4 +242,5 @@ async def delete_journal_entry(
     deleted = await journal_service.delete_entry(current_user.id, entry_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+
 

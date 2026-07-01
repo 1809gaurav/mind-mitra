@@ -44,6 +44,7 @@ class JournalEntryCreate(JournalEntryBase):
     pass
 
 
+
 class JournalEntryUpdate(BaseModel):
     """Schema used when updating an existing journal entry.
 
@@ -131,3 +132,4 @@ class MoodHistoryResponse(BaseModel):
 
 # Alias for backward compatibility with journal service
 JournalEntry = JournalEntryResponse
+
