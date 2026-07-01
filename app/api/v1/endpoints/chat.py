@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel
-from app.core.database import get_collection
-from app.services.chatbot import chatbot_service, get_ai_response
-from app.models.chatbot import ChatMessageCreate
+
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.database import get_collection
+from app.models.chatbot import ChatHistory, ChatMessage, ChatMessageCreate
 from app.models.user import User
+from app.services.chatbot import chatbot_service, get_ai_response
 
 class ChatRequest(BaseModel):
     message: str
@@ -67,3 +68,54 @@ async def chat_endpoint(request: ChatRequest = Body(
     ])
 
     return ChatResponse(response=ai_response)
+
+
+@router.get(
+    "/chat/history",
+    summary="Retrieve paginated chat history",
+    response_model=ChatHistory,
+    responses={
+        200: {"description": "Paginated list of chat messages, newest first"},
+        401: {"description": "Not authenticated"},
+        422: {"description": "Validation error — invalid page or size value"},
+    },
+)
+async def get_chat_history(
+    page: int = Query(1, ge=1, description="Page number, starting at 1"),
+    size: int = Query(20, ge=1, le=100, description="Messages per page (1–100)"),
+    current_user: User = Depends(get_current_user),
+) -> ChatHistory:
+    """Retrieve the authenticated user's chat history with pagination.
+
+    Messages are returned in reverse-chronological order (newest first),
+    so page 1 always shows the most recent conversation.
+
+    This endpoint handles both messages stored by the current endpoint
+    (which use MongoDB's ObjectId) and messages stored by the
+    ChatbotService (which use UUID-based "id" fields).
+
+    Args:
+        page:         Which page of results to return (starts at 1).
+        size:         How many messages per page (1–100, defaults to 20).
+        current_user: JWT-authenticated user provided by the auth dependency.
+
+    Returns:
+        ChatHistory with a paginated list of messages plus total count,
+        current page, and page size — everything a frontend needs to
+        render a "load more" or numbered pagination control.
+    """
+    chat_collection = get_collection("chat_history")
+
+    # Count all messages belonging to this user (needed for pagination UI)
+    total = await chat_collection.count_documents({"user_id": current_user.id})
+
+    # Delegate the paginated fetch + document normalisation to the service.
+    # chatbot_service.get_chat_history() handles the _id→id fallback and
+    # missing-field defaults so the endpoint stays clean.
+    messages = await chatbot_service.get_chat_history(
+        user_id=current_user.id,
+        page=page,
+        size=size,
+    )
+
+    return ChatHistory(messages=messages, total=total, page=page, size=size)
