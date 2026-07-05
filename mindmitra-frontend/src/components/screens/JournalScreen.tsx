@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AppContext } from '../../context/AppContext';
-import { Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, Trash2, RefreshCw, Edit2, Calendar, X } from 'lucide-react';
 import {
   fetchJournalEntries,
   saveJournalEntry,
+  updateJournalEntry,
   deleteJournalEntry,
   getEmotionConfig,
   formatConfidence,
   type JournalEntryResponse,
 } from '../../api/journal';
 import { Pagination } from '../../components/Pagination';
-//import type JournalListResponse from '../../api/journal';
+import { RichTextEditor } from '../shared/RichTextEditor';
+import toast from 'react-hot-toast';
 
-//pagination
+// Pagination interface matching upstream
 interface PaginationMeta {
   limit: number;
   offset: number;
@@ -22,8 +24,6 @@ interface PaginationMeta {
   current_page: number;
   total_pages: number;
 }
-
-
 
 /** Emotion badge component — renders a colored pill with emoji + label + confidence */
 const EmotionBadge: React.FC<{
@@ -71,130 +71,116 @@ const EntrySkeleton: React.FC<{ darkMode: boolean }> = ({ darkMode }) => (
   </div>
 );
 
-/** Format date to readable string */
-const formatDate = (dateStr: string): string => {
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return '';
-  }
-};
-
-/** Mood emoji mapping */
-const moodEmoji = (mood: number): string => {
-  const map: Record<number, string> = { 1: '😢', 2: '😕', 3: '😐', 4: '🙂', 5: '😊' };
-  return map[mood] ?? '😐';
-};
-
 const JournalScreen: React.FC = () => {
   const { darkMode } = useContext(AppContext);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentMood, setCurrentMood] = useState(3);
   const [journalText, setJournalText] = useState('');
+  const [entryDate, setEntryDate] = useState('');
   const [entries, setEntries] = useState<JournalEntryResponse[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  // Try to get the auth token from localStorage (the app stores it there)
+
+  // Token helper
   const getToken = useCallback((): string | null => {
     return localStorage.getItem('token') || null;
   }, []);
 
   // ── Helper: Extract pagination from headers ────────────────────────────────
   const extractPaginationFromHeaders = (response: Response, limit: number, offset: number): PaginationMeta => {
-  const totalCount = parseInt(response.headers.get('X-Total-Count') || '0', 10);
-  const hasNext = response.headers.get('X-Has-Next') === 'True';
-  const currentPage = Math.floor(offset / limit) + 1;
-  const totalPages = Math.ceil(totalCount / limit) || 1;
+    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0', 10);
+    const hasNext = response.headers.get('X-Has-Next') === 'True';
+    const currentPageVal = Math.floor(offset / limit) + 1;
+    const totalPages = Math.ceil(totalCount / limit) || 1;
 
-  return {
-    limit,
-    offset,
-    total_count: totalCount,
-    has_next: hasNext,
-    has_prev: offset > 0,
-    current_page: currentPage,
-    total_pages: totalPages,
+    return {
+      limit,
+      offset,
+      total_count: totalCount,
+      has_next: hasNext,
+      has_prev: offset > 0,
+      current_page: currentPageVal,
+      total_pages: totalPages,
+    };
   };
-};
 
-  // ── Fetch entries on mount ─────────────────────────────────────────────────
- const loadEntries = useCallback(async (page: number = 1, limit: number = 20) => {
-  const token = getToken();
-  if (!token) return;
+  // ── Fetch entries on mount & when page/filters change ──────────────────────
+  const loadEntries = useCallback(async (page: number = 1, limit: number = 20) => {
+    const token = getToken();
+    if (!token) return;
 
-  setLoading(true);
-  setError(null);
-  try {
-    const offset = (page - 1) * limit;
-    const response = await fetch(
-      `/api/v1/journal?limit=${limit}&offset=${offset}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+    setLoading(true);
+    setError(null);
+    try {
+      const offset = (page - 1) * limit;
+      let url = `/api/v1/journal?limit=${limit}&offset=${offset}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+
+      const response = await fetch(
+        url,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch journal entries');
       }
-    );
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch journal entries');
-    }
-
-    const data = await response.json();
-    setEntries(data);
-    
-    // Extract pagination from response headers
-    const paginationMeta = extractPaginationFromHeaders(response, limit, offset);
-    setPagination(paginationMeta);
-    
-    setCurrentPage(page);
-    setItemsPerPage(limit);
-  } catch (err: any) {
-    console.error('Failed to fetch journal entries:', err);
-    if (err?.response?.status !== 401) {
+      const data = await response.json();
+      setEntries(data);
+      
+      const paginationMeta = extractPaginationFromHeaders(response, limit, offset);
+      setPagination(paginationMeta);
+      
+      setCurrentPage(page);
+      setItemsPerPage(limit);
+    } catch (err: any) {
+      console.error('Failed to fetch journal entries:', err);
       setError('Failed to load entries');
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-}, [getToken]);
+  }, [getToken, startDate, endDate]);
 
-useEffect(() => {
-  loadEntries(1, 20);
-}, [loadEntries]);
+  useEffect(() => {
+    loadEntries(1, 20);
+  }, [loadEntries]);
 
-// ── Page change handler ────────────────────────────────────────────────────
-const handlePageChange = (newPage: number) => {
-  loadEntries(newPage, itemsPerPage);
-};
+  // ── Page change handler ────────────────────────────────────────────────────
+  const handlePageChange = (newPage: number) => {
+    loadEntries(newPage, itemsPerPage);
+  };
 
-// ── Items per page change handler ──────────────────────────────────────────
-const handleLimitChange = (newLimit: number) => {
-  loadEntries(1, newLimit); // Reset to page 1 when changing limit
-};
+  // ── Items per page change handler ──────────────────────────────────────────
+  const handleLimitChange = (newLimit: number) => {
+    loadEntries(1, newLimit);
+  };
 
   // ── Save handler ───────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!journalText.trim()) return;
+    if (!journalText.trim() || journalText === '<p></p>') {
+      toast.error('Journal content cannot be empty');
+      return;
+    }
     const token = getToken();
     if (!token) {
-      setError('Please log in to save entries');
+      toast.error('Please log in to save entries');
       return;
     }
 
@@ -202,55 +188,111 @@ const handleLimitChange = (newLimit: number) => {
     setError(null);
     setSaveSuccess(false);
 
-   try {
-  const res = await saveJournalEntry({ mood: currentMood, text: journalText }, token);
-  setJournalText('');
-  setCurrentMood(3);
-  setSaveSuccess(true);
-  setTimeout(() => setSaveSuccess(false), 3000);
-  // Reload first page to show new entry
-  await loadEntries(1, itemsPerPage);
-}
-     catch (err: any) {
+    try {
+      const payload = {
+        mood: currentMood,
+        text: journalText,
+        date: entryDate ? new Date(entryDate).toISOString() : undefined
+      };
+
+      if (editingId) {
+        await updateJournalEntry(editingId, payload, token);
+        toast.success('Journal entry updated');
+      } else {
+        await saveJournalEntry(payload, token);
+        toast.success('Journal entry saved');
+      }
+
+      // Reset form
+      setEditingId(null);
+      setCurrentMood(3);
+      setJournalText('');
+      setEntryDate('');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      
+      // Reload first page to show new/updated entry
+      await loadEntries(1, itemsPerPage);
+    } catch (err: any) {
       console.error('Journal save error:', err);
-      setError(err?.response?.data?.detail || 'Failed to save entry. Please try again.');
+      toast.error('Failed to save journal entry');
     } finally {
       setSaving(false);
     }
   };
 
+  // ── Edit handler ───────────────────────────────────────────────────────────
+  const handleEdit = (entry: JournalEntryResponse) => {
+    setEditingId(entry.id);
+    setCurrentMood(entry.mood);
+    setJournalText(entry.text);
+    if (entry.date) {
+      const localDate = new Date(entry.date).toISOString().split('T')[0];
+      setEntryDate(localDate);
+    } else {
+      setEntryDate('');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // ── Delete handler ─────────────────────────────────────────────────────────
   const handleDelete = async (entryId: string) => {
+    if (!window.confirm('Are you sure you want to delete this entry?')) {
+      return;
+    }
     const token = getToken();
     if (!token) return;
 
     try {
-  await deleteJournalEntry(entryId, token);
-  setEntries(prev => prev.filter(e => e.id !== entryId));
-  // If no entries left on this page, go back to previous page
-  if (entries.length === 1 && currentPage > 1) {
-    handlePageChange(currentPage - 1);
-  } else if (entries.length > 0) {
-    // Reload current page to maintain consistency
-    loadEntries(currentPage, itemsPerPage);
-  }
-} catch (err) {
-  console.error('Delete error:', err);
-  setError('Failed to delete entry');
-}
+      await deleteJournalEntry(entryId, token);
+      toast.success('Journal entry deleted');
+      
+      // Reload current/previous page maintaining consistency
+      if (entries.length === 1 && currentPage > 1) {
+        loadEntries(currentPage - 1, itemsPerPage);
+      } else {
+        loadEntries(currentPage, itemsPerPage);
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete entry');
+    }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6 pb-24`}>
-      <div className="max-w-md mx-auto">
-        <h2 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-          How are you feeling?
-        </h2>
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setCurrentMood(3);
+    setJournalText('');
+    setEntryDate('');
+  };
 
-        {/* ── Compose Card ────────────────────────────────────────────────── */}
+  const getMoodEmoji = (mood: number) => {
+    switch (mood) {
+      case 1: return '😢';
+      case 2: return '😕';
+      case 3: return '😐';
+      case 4: return '🙂';
+      case 5: return '😊';
+      default: return '😐';
+    }
+  };
+
+  const clearFilters = () => {
+    setStartDate('');
+    setEndDate('');
+  };
+
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800'} p-6 pb-24`}>
+      <div className="max-w-2xl mx-auto animate-fadeIn">
+        <h2 className="text-2xl font-bold mb-6 text-center font-outfit">Mood Journal</h2>
+        
+        {/* Compose/Editor Card */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg mb-6 transition-colors duration-300`}>
-          {/* Mood slider */}
+          <h3 className="font-semibold mb-4 text-lg">
+            {editingId ? 'Edit Journal Entry' : 'How are you feeling today?'}
+          </h3>
+          
           <div className="flex justify-center items-center space-x-4 mb-6">
             <span className="text-2xl">😢</span>
             <input
@@ -259,37 +301,45 @@ const handleLimitChange = (newLimit: number) => {
               max="5"
               value={currentMood}
               onChange={e => setCurrentMood(Number(e.target.value))}
-              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              id="mood-slider"
+              className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
             <span className="text-2xl">😊</span>
           </div>
-
+          
           <div className="text-center mb-4">
-            <span className="text-3xl transition-all duration-200">{moodEmoji(currentMood)}</span>
+            <span className="text-4xl" role="img" aria-label="mood">
+              {getMoodEmoji(currentMood)}
+            </span>
           </div>
 
-          {/* Journal text */}
-          <textarea
-            id="journal-text-input"
-            value={journalText}
-            onChange={e => setJournalText(e.target.value)}
-            placeholder="Write about your mood..."
-            className={`w-full h-32 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200 ${
-              darkMode ? 'bg-gray-700 text-white border-gray-600 placeholder-gray-400' : 'border-gray-300 placeholder-gray-500'
-            }`}
-          />
+          <div className="mb-4">
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-500">
+              Entry Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={entryDate}
+              onChange={e => setEntryDate(e.target.value)}
+              className={`w-full p-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
+                darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
+              }`}
+            />
+          </div>
 
-          {/* Error message */}
-          {error && (
-            <div className="mt-2 p-2 bg-red-100 text-red-700 text-sm rounded-lg dark:bg-red-900/30 dark:text-red-300">
-              {error}
-            </div>
-          )}
+          <div className="mb-4">
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-500">
+              Journal Notes
+            </label>
+            <RichTextEditor 
+              content={journalText} 
+              onChange={setJournalText} 
+              darkMode={darkMode}
+            />
+          </div>
 
-          {/* Success message with emotion result */}
+          {/* Success and Emotion analysis response indicators */}
           {saveSuccess && entries[0]?.emotion_analyzed && (
-            <div className={`mt-2 p-3 rounded-lg flex items-center gap-2 ${
+            <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
               darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-700'
             }`}>
               <span className="text-sm">✨ Saved! Detected emotion:</span>
@@ -302,129 +352,178 @@ const handleLimitChange = (newLimit: number) => {
             </div>
           )}
 
-          {/* Save button */}
-          <button
-            id="journal-save-btn"
-            onClick={handleSave}
-            disabled={saving || !journalText.trim()}
-            className={`w-full mt-4 py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
-              saving
-                ? 'bg-blue-400 cursor-wait'
-                : 'bg-green-500 hover:bg-green-600 active:scale-[0.98]'
-            } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Analyzing emotion...
-              </>
-            ) : (
-              'Save Entry'
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? 'Analyzing...' : editingId ? 'Update Entry' : 'Save Entry'}
+            </button>
+            {editingId && (
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 bg-gray-500 hover:bg-gray-600 text-white py-2.5 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
-        {/* ── Recent Entries ───────────────────────────────────────────────── */}
+        {/* Filters and List Card */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg transition-colors duration-300`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              Recent Entries
-            </h3>
-            <button
-              onClick={() => loadEntries(currentPage, itemsPerPage)}
-              disabled={loading}
-              className={`p-1.5 rounded-lg transition-colors duration-200 ${
-                darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
-              }`}
-              title="Refresh entries"
-              id="journal-refresh-btn"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-4 border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg">Past Entries</h3>
+              <button
+                onClick={() => loadEntries(currentPage, itemsPerPage)}
+                disabled={loading}
+                className={`p-1.5 rounded-lg transition-colors duration-200 ${
+                  darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+                }`}
+                title="Refresh entries"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            
+            {/* Date Filtering Inputs */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className={`p-1.5 border rounded text-xs outline-none ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
+                  }`}
+                  placeholder="Start date"
+                />
+                <span className="text-gray-400 text-xs">to</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className={`p-1.5 border rounded text-xs outline-none ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
+                  }`}
+                  placeholder="End date"
+                />
+              </div>
+              {(startDate || endDate) && (
+                <button
+                  onClick={clearFilters}
+                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                  title="Clear Filters"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Loading skeletons */}
-          {loading && entries.length === 0 && (
+          {loading && entries.length === 0 ? (
             <div className="space-y-3">
               {[0, 1, 2].map(i => <EntrySkeleton key={i} darkMode={darkMode} />)}
             </div>
-          )}
-
-          {/* Empty state */}
-          {!loading && entries.length === 0 && (
-            <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              <span className="text-4xl block mb-2">📝</span>
-              <p className="text-sm">No entries yet. Start journaling above!</p>
+          ) : entries.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              No entries found. Start by writing your first journal notes above!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {entries.map(entry => (
+                <div 
+                  key={entry.id} 
+                  className={`p-4 border rounded-xl relative transition-all ${
+                    darkMode 
+                      ? 'border-gray-700 bg-gray-900/50 hover:bg-gray-900' 
+                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100/50'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl" role="img" aria-label="mood">
+                        {getMoodEmoji(entry.mood)}
+                      </span>
+                      <div>
+                        <span className="font-semibold text-sm">
+                          Mood: {entry.mood}/5
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {new Date(entry.date).toLocaleDateString(undefined, {
+                              weekday: 'short',
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          {entry.emotion_analyzed && (
+                            <EmotionBadge
+                              label={entry.emotion_label}
+                              confidence={entry.emotion_confidence}
+                              analyzed={entry.emotion_analyzed}
+                              darkMode={darkMode}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(entry)}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-200 text-gray-600'
+                        }`}
+                        title="Edit Entry"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        className={`p-1.5 rounded-lg transition-colors text-red-500 ${
+                          darkMode ? 'hover:bg-gray-750' : 'hover:bg-red-50'
+                        }`}
+                        title="Delete Entry"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Formatted rich text content */}
+                  <div 
+                    className={`text-sm leading-relaxed whitespace-normal break-words ProseMirror-static ${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    }`}
+                    dangerouslySetInnerHTML={{ __html: entry.text }}
+                  />
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Entry list */}
-          {entries.length > 0 && (
-  <>
-    <div className="space-y-3">
-      {entries.map(entry => (
-        <div
-          key={entry.id}
-          className={`p-4 rounded-xl transition-all duration-200 hover:scale-[1.01] group ${
-            darkMode
-              ? 'bg-gray-700/50 hover:bg-gray-700/80'
-              : 'bg-gray-50 hover:bg-gray-100'
-          }`}
-        >
-          {/* Top row: date + mood + emotion badge */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-lg" title={`Mood: ${entry.mood}/5`}>
-                {moodEmoji(entry.mood)}
-              </span>
-              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {formatDate(entry.created_at || entry.date)}
-              </span>
+          {/* Pagination Controls */}
+          {pagination && (
+            <div className="mt-6">
+              <Pagination
+                currentPage={pagination.current_page}
+                totalPages={pagination.total_pages}
+                hasNext={pagination.has_next}
+                hasPrev={pagination.has_prev}
+                onPageChange={handlePageChange}
+                onLimitChange={handleLimitChange}
+                itemsPerPage={itemsPerPage}
+                darkMode={darkMode}
+              />
             </div>
-            <EmotionBadge
-              label={entry.emotion_label}
-              confidence={entry.emotion_confidence}
-              analyzed={entry.emotion_analyzed}
-              darkMode={darkMode}
-            />
-          </div>
-
-          {/* Text preview */}
-          <p className={`text-sm line-clamp-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-            {entry.text}
-          </p>
-
-          {/* Actions row */}
-          <div className="flex justify-end mt-2">
-            <button
-              onClick={() => handleDelete(entry.id)}
-              className={`p-1 rounded transition-colors duration-200 opacity-0 group-hover:opacity-100 ${
-                darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-400'
-              }`}
-              title="Delete entry"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    {/* Pagination Controls */}
-    {pagination && (
-      <Pagination
-        currentPage={pagination.current_page}
-        totalPages={pagination.total_pages}
-        hasNext={pagination.has_next}
-        hasPrev={pagination.has_prev}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        itemsPerPage={itemsPerPage}
-        darkMode={darkMode}
-      />
-    )}
-  </>
-)}
+          )}
         </div>
       </div>
     </div>
