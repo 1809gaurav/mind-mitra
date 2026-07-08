@@ -169,34 +169,37 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
     onLogoutComplete?.();
   };
 
-  const cardClass = `${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-xl shadow-lg`;
-  const inputClass = `w-full p-3 rounded-lg border ${
-    darkMode
-      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-      : 'bg-white border-gray-300 text-gray-800'
-  } focus:ring-2 focus:ring-blue-500 focus:border-transparent`;
+  const cardClass = "app-card";
+  const inputClass = "w-full p-4 rounded-2xl border border-theme-border focus:ring-2 focus:ring-theme-blue focus:border-transparent transition-all duration-200 bg-theme-surface text-theme-text-primary placeholder-gray-400";
 
   if (loadingUser && !user) {
     return (
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className={`min-h-screen bg-theme-bg flex items-center justify-center`}>
+        <Loader2 className="w-8 h-8 animate-spin text-theme-orange" />
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6 pb-24`}>
-      <div className="max-w-md mx-auto space-y-4">
-        <div className={`${cardClass} p-6 text-center`}>
-          <div className="relative w-24 h-24 mx-auto mb-4">
+    <div className={`min-h-screen bg-theme-bg text-theme-text-primary p-6 pb-24`}>
+      <div className="max-w-md mx-auto space-y-6">
+        <div className="text-center mb-8">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-theme-surface border border-theme-border rounded-full shadow-sm text-[10px] font-extrabold uppercase tracking-wider text-theme-orange mb-3">
+            👤 Account Settings
+          </span>
+          <h2 className="text-3xl font-extrabold text-theme-blue dark:text-white tracking-tight leading-tight">Profile Settings</h2>
+        </div>
+
+        <div className={`${cardClass} p-8 text-center`}>
+          <div className="relative w-24 h-24 mx-auto mb-5">
             {picturePreview ? (
               <img
                 src={picturePreview}
                 alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-4 border-blue-500"
+                className="w-24 h-24 rounded-full object-cover border-4 border-theme-orange"
               />
             ) : (
-              <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
+              <div className="w-24 h-24 bg-gradient-to-br from-theme-blue to-theme-orange rounded-full flex items-center justify-center text-white text-3xl font-extrabold shadow-md">
                 {user?.name?.[0]?.toUpperCase() || '?'}
               </div>
             )}
@@ -204,7 +207,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-lg"
+                className="absolute bottom-0 right-0 bg-theme-orange hover:bg-theme-orange-hover text-white p-2.5 rounded-full shadow-md transition-all duration-200"
                 aria-label="Change profile picture"
               >
                 <Camera className="w-4 h-4" />
@@ -224,24 +227,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`${inputClass} text-center font-bold text-lg mb-2`}
+              className={`${inputClass} text-center font-bold text-lg mb-3`}
               placeholder="Your name"
               maxLength={100}
             />
           ) : (
-            <h3 className="text-xl font-bold mb-1">{user?.name || 'Guest'}</h3>
+            <h3 className="text-2xl font-extrabold mb-1.5 tracking-tight text-theme-blue dark:text-white">{user?.name || 'Guest'}</h3>
           )}
 
-          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <p className="text-sm font-medium text-theme-text-secondary">
             {user?.email || 'Not signed in'}
           </p>
         </div>
 
-        <div className={`${cardClass} p-5`}>
-          <div className="flex items-center justify-between mb-4">
+        <div className={`${cardClass} p-6 md:p-8`}>
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-red-500" />
-              <h4 className="font-semibold">Emergency Contact</h4>
+              <h4 className="font-bold text-theme-blue dark:text-white">Emergency Contact</h4>
             </div>
             {!isEditing && (
               <button
@@ -250,7 +253,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
                   resetForm();
                   setIsEditing(true);
                 }}
-                className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                className="text-sm text-theme-orange hover:text-theme-orange-hover font-bold transition-colors"
               >
                 Edit Profile
               </button>
@@ -258,86 +261,86 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
           </div>
 
           {isEditing ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide opacity-70">Name</label>
-                <div className="relative mt-1">
-                  <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                <label className="text-xs font-bold uppercase tracking-wider text-theme-text-secondary mb-2 block">Name</label>
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-4.5 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={contact.name}
                     onChange={(e) => setContact({ ...contact, name: e.target.value })}
-                    className={`${inputClass} pl-10`}
+                    className={`${inputClass} pl-12`}
                     placeholder="Contact name"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide opacity-70">Phone</label>
-                <div className="relative mt-1">
-                  <Phone className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                <label className="text-xs font-bold uppercase tracking-wider text-theme-text-secondary mb-2 block">Phone</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-4.5 w-4 h-4 text-gray-400" />
                   <input
                     type="tel"
                     value={contact.phone}
                     onChange={(e) => setContact({ ...contact, phone: e.target.value })}
-                    className={`${inputClass} pl-10`}
+                    className={`${inputClass} pl-12`}
                     placeholder="1234567890"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide opacity-70">Email (optional)</label>
-                <div className="relative mt-1">
-                  <Mail className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                <label className="text-xs font-bold uppercase tracking-wider text-theme-text-secondary mb-2 block">Email (optional)</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-4.5 w-4 h-4 text-gray-400" />
                   <input
                     type="email"
                     value={contact.email || ''}
                     onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                    className={`${inputClass} pl-10`}
+                    className={`${inputClass} pl-12`}
                     placeholder="contact@email.com"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium uppercase tracking-wide opacity-70">Relationship</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-theme-text-secondary mb-2 block">Relationship</label>
                 <input
                   type="text"
                   value={contact.relationship}
                   onChange={(e) => setContact({ ...contact, relationship: e.target.value })}
-                  className={`${inputClass} mt-1`}
+                  className={inputClass}
                   placeholder="e.g. Parent, Friend"
                 />
               </div>
             </div>
           ) : user?.emergency_contacts?.[0] ? (
-            <div className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              <p><span className="font-medium">Name:</span> {user.emergency_contacts[0].name}</p>
-              <p><span className="font-medium">Phone:</span> {user.emergency_contacts[0].phone}</p>
+            <div className="space-y-3.5 text-sm font-semibold text-theme-text-secondary">
+              <p><span className="text-theme-text-primary">Name:</span> {user.emergency_contacts[0].name}</p>
+              <p><span className="text-theme-text-primary">Phone:</span> {user.emergency_contacts[0].phone}</p>
               {user.emergency_contacts[0].email && (
-                <p><span className="font-medium">Email:</span> {user.emergency_contacts[0].email}</p>
+                <p><span className="text-theme-text-primary">Email:</span> {user.emergency_contacts[0].email}</p>
               )}
-              <p><span className="font-medium">Relationship:</span> {user.emergency_contacts[0].relationship}</p>
+              <p><span className="text-theme-text-primary">Relationship:</span> {user.emergency_contacts[0].relationship}</p>
             </div>
           ) : (
-            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className="text-sm font-semibold text-theme-text-secondary">
               No emergency contact added yet.
             </p>
           )}
         </div>
 
         {error && (
-          <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm border border-red-200">
+          <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 text-sm border border-red-100/30">
             {error}
           </div>
         )}
         {success && (
-          <div className="p-3 rounded-lg bg-green-50 text-green-700 text-sm border border-green-200">
+          <div className="p-4 rounded-2xl bg-green-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-sm border border-emerald-100/30">
             {success}
           </div>
         )}
 
         {isEditing ? (
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <button
               type="button"
               onClick={() => {
@@ -345,48 +348,42 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
                 setIsEditing(false);
               }}
               disabled={saving}
-              className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-xl ${
-                darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
-              } shadow-lg`}
+              className="flex-1 app-btn-pill-secondary py-3.5 px-6 font-bold text-sm"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 mr-2 inline" />
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving || !name.trim()}
-              className="flex-1 flex items-center justify-center gap-2 p-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow-lg disabled:opacity-50"
+              className="flex-1 app-btn-pill-primary py-3.5 px-6 font-bold text-sm"
             >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2 inline" /> : <Save className="w-4 h-4 mr-2 inline" />}
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <button
               type="button"
               onClick={() => setDarkMode(!darkMode)}
-              className={`w-full ${cardClass} p-4 text-left hover:scale-[1.01] transition-transform`}
+              className="w-full flex items-center justify-start gap-4 p-5 rounded-2xl bg-theme-surface border border-theme-border text-theme-text-primary hover:border-theme-orange hover:-translate-y-0.5 shadow-sm hover:shadow-md transition-all duration-300 font-bold text-sm"
             >
-              <div className="flex items-center">
-                {darkMode ? (
-                  <Sun className="w-5 h-5 mr-3 text-yellow-500" />
-                ) : (
-                  <Moon className="w-5 h-5 mr-3 text-blue-500" />
-                )}
-                <span>Theme: {darkMode ? 'Dark' : 'Light'}</span>
-              </div>
+              {darkMode ? (
+                <Sun className="w-5 h-5 text-yellow-500" />
+              ) : (
+                <Moon className="w-5 h-5 text-theme-blue" />
+              )}
+              <span>Theme: {darkMode ? 'Dark' : 'Light'}</span>
             </button>
             <button
               type="button"
               onClick={handleLogout}
-              className={`w-full ${cardClass} p-4 text-left hover:scale-[1.01] transition-transform`}
+              className="w-full flex items-center justify-start gap-4 p-5 rounded-2xl bg-theme-surface border border-theme-border text-theme-text-primary hover:border-red-400 hover:text-red-500 hover:-translate-y-0.5 shadow-sm hover:shadow-md transition-all duration-300 font-bold text-sm"
             >
-              <div className="flex items-center">
-                <Settings className="w-5 h-5 mr-3 text-gray-500" />
-                <span>Log out</span>
-              </div>
+              <Settings className="w-5 h-5 text-gray-400" />
+              <span>Log out</span>
             </button>
           </div>
         )}

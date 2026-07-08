@@ -1,14 +1,66 @@
 @import "tailwindcss";
 
+@theme {
+  --color-theme-bg: var(--color-bg);
+  --color-theme-surface: var(--color-surface);
+  --color-theme-orange: var(--color-accent-orange);
+  --color-theme-orange-hover: var(--color-accent-orange-hover);
+  --color-theme-blue: var(--color-accent-blue);
+  --color-theme-blue-hover: var(--color-accent-blue-hover);
+  --color-theme-text-primary: var(--color-text-primary);
+  --color-theme-text-secondary: var(--color-text-secondary);
+  --color-theme-border: var(--color-border);
+  --color-theme-shadow: var(--color-shadow);
+  
+  --color-theme-card-blue: var(--color-card-blue);
+  --color-theme-card-orange: var(--color-card-orange);
+  --color-theme-card-violet: var(--color-card-violet);
+  --color-theme-card-green: var(--color-card-green);
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  --color-bg: #fffbf7; /* warm cream/off-white background from landing page */
+  --color-surface: #ffffff; /* soft white card background */
+  --color-accent-orange: #fb923c; /* orange-400 */
+  --color-accent-orange-hover: #f97316; /* orange-500 */
+  --color-accent-blue: #1e40af; /* deep blue-800 */
+  --color-accent-blue-hover: #1e3a8a; /* deep blue-900 */
+  --color-text-primary: #111827; /* gray-900 */
+  --color-text-secondary: #4b5563; /* gray-600 */
+  --color-border: #f3f4f6; /* gray-100 */
+  --color-shadow: rgba(0, 0, 0, 0.05);
+
+  --color-card-blue: #f0f7ff;
+  --color-card-orange: #fff7ed;
+  --color-card-violet: #f5f3ff;
+  --color-card-green: #f0fdf4;
+
   font-family: "Nunito", system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
+}
+
+.dark, [data-theme="dark"] {
+  --color-bg: #0f172a; /* dark slate background */
+  --color-surface: #1e293b; /* dark slate card background */
+  --color-accent-orange: #fb923c;
+  --color-accent-orange-hover: #fdba74;
+  --color-accent-blue: #60a5fa; /* light blue for dark mode contrast */
+  --color-accent-blue-hover: #93c5fd;
+  --color-text-primary: #f8fafc; /* slate-50 */
+  --color-text-secondary: #94a3b8; /* slate-400 */
+  --color-border: #334155; /* slate-700 */
+  --color-shadow: rgba(0, 0, 0, 0.25);
+
+  --color-card-blue: #1e293b;
+  --color-card-orange: #1e293b;
+  --color-card-violet: #1e293b;
+  --color-card-green: #1e293b;
 }
 
 * {
@@ -31,18 +83,106 @@ body,
 
 body {
   min-width: 320px;
-  background-color: #fcfdfe;
-  color: #191c1e;
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Redesigned Card class */
+.app-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 24px -4px var(--color-shadow);
+  border-radius: 28px; /* very generous rounded corners */
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 32px -6px var(--color-shadow);
+}
+
+/* Pill Primary Buttons */
+.app-btn-pill-primary {
+  background-color: var(--color-accent-orange);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 9999px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 16px -4px rgba(251, 146, 60, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.app-btn-pill-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-orange-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px -4px rgba(251, 146, 60, 0.35);
+}
+
+.app-btn-pill-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.app-btn-pill-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pill Blue Buttons */
+.app-btn-pill-blue {
+  background-color: var(--color-accent-blue);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 9999px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 16px -4px rgba(30, 64, 175, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.app-btn-pill-blue:hover:not(:disabled) {
+  background-color: var(--color-accent-blue-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px -4px rgba(30, 64, 175, 0.35);
+}
+
+.app-btn-pill-blue:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Pill Secondary Buttons */
+.app-btn-pill-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.app-btn-pill-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent-blue);
+  color: var(--color-accent-blue);
+  transform: translateY(-2px);
 }
 
 /* Glass panel cards */
 .glass-panel {
-  background-color: #ffffff;
-  border: 2px solid #eceef0;
-  box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 12px 24px -4px var(--color-shadow);
   transition:
     transform 0.3s ease,
-    box-shadow 0.3s ease;
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
   position: relative;
   overflow: hidden;
 }
@@ -77,9 +217,11 @@ body {
   }
 }
 
-/* Hero background */
 .hero-bg {
   background: linear-gradient(135deg, #fcfdfe 0%, #fff5f0 50%, #f0f7ff 100%);
+}
+.dark .hero-bg {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
 }
 
 /* Blob animation */

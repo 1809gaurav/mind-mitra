@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AppContext } from '../../context/AppContext';
 import { Loader2, Trash2, RefreshCw, Edit2, Calendar, X } from 'lucide-react';
 import {
-  fetchJournalEntries,
   saveJournalEntry,
   updateJournalEntry,
   deleteJournalEntry,
@@ -81,7 +80,7 @@ const JournalScreen: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntryResponse[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -150,7 +149,7 @@ const JournalScreen: React.FC = () => {
       
       setCurrentPage(page);
       setItemsPerPage(limit);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch journal entries:', err);
       setError('Failed to load entries');
     } finally {
@@ -213,7 +212,7 @@ const JournalScreen: React.FC = () => {
       
       // Reload first page to show new/updated entry
       await loadEntries(1, itemsPerPage);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Journal save error:', err);
       toast.error('Failed to save journal entry');
     } finally {
@@ -283,13 +282,18 @@ const JournalScreen: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800'} p-6 pb-24`}>
+    <div className={`min-h-screen bg-theme-bg text-theme-text-primary p-6 pb-24`}>
       <div className="max-w-2xl mx-auto animate-fadeIn">
-        <h2 className="text-2xl font-bold mb-6 text-center font-outfit">Mood Journal</h2>
+        <div className="text-center mb-8">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-theme-surface border border-theme-border rounded-full shadow-sm text-[10px] font-extrabold uppercase tracking-wider text-theme-orange mb-3">
+            📝 Private Thoughts
+          </span>
+          <h2 className="text-3xl font-extrabold text-theme-blue dark:text-white tracking-tight leading-tight">Mood Journal</h2>
+        </div>
         
         {/* Compose/Editor Card */}
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg mb-6 transition-colors duration-300`}>
-          <h3 className="font-semibold mb-4 text-lg">
+        <div className="app-card p-6 md:p-8 mb-6 transition-colors duration-300">
+          <h3 className="text-lg font-bold mb-4 text-theme-blue dark:text-white">
             {editingId ? 'Edit Journal Entry' : 'How are you feeling today?'}
           </h3>
           
@@ -301,33 +305,31 @@ const JournalScreen: React.FC = () => {
               max="5"
               value={currentMood}
               onChange={e => setCurrentMood(Number(e.target.value))}
-              className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              className="flex-1 h-2 bg-theme-border rounded-lg appearance-none cursor-pointer accent-theme-orange"
             />
             <span className="text-2xl">😊</span>
           </div>
           
-          <div className="text-center mb-4">
-            <span className="text-4xl" role="img" aria-label="mood">
+          <div className="text-center mb-6">
+            <span className="text-5xl transition-all duration-200 inline-block hover:scale-110" role="img" aria-label="mood">
               {getMoodEmoji(currentMood)}
             </span>
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-500">
+            <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-theme-text-secondary">
               Entry Date (Optional)
             </label>
             <input
               type="date"
               value={entryDate}
               onChange={e => setEntryDate(e.target.value)}
-              className={`w-full p-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
-                darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
-              }`}
+              className="w-full p-3 border border-theme-border rounded-2xl text-sm outline-none focus:ring-2 focus:ring-theme-blue bg-theme-surface text-theme-text-primary placeholder-gray-400"
             />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-gray-500">
+          <div className="mb-6">
+            <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-theme-text-secondary">
               Journal Notes
             </label>
             <RichTextEditor 
@@ -339,10 +341,10 @@ const JournalScreen: React.FC = () => {
 
           {/* Success and Emotion analysis response indicators */}
           {saveSuccess && entries[0]?.emotion_analyzed && (
-            <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+            <div className={`mb-6 p-3.5 rounded-2xl flex items-center gap-2 ${
               darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-700'
             }`}>
-              <span className="text-sm">✨ Saved! Detected emotion:</span>
+              <span className="text-sm font-semibold">✨ Saved! Detected emotion:</span>
               <EmotionBadge
                 label={entries[0].emotion_label}
                 confidence={entries[0].emotion_confidence}
@@ -352,11 +354,11 @@ const JournalScreen: React.FC = () => {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 app-btn-pill-primary py-3 px-6 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? 'Analyzing...' : editingId ? 'Update Entry' : 'Save Entry'}
@@ -364,7 +366,7 @@ const JournalScreen: React.FC = () => {
             {editingId && (
               <button
                 onClick={handleCancelEdit}
-                className="px-4 bg-gray-500 hover:bg-gray-600 text-white py-2.5 rounded-lg font-medium transition-colors"
+                className="px-6 app-btn-pill-secondary py-3 text-sm font-semibold transition-all duration-200"
               >
                 Cancel
               </button>
@@ -373,15 +375,15 @@ const JournalScreen: React.FC = () => {
         </div>
 
         {/* Filters and List Card */}
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg transition-colors duration-300`}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-4 border-gray-200 dark:border-gray-700">
+        <div className="app-card p-6 md:p-8 transition-colors duration-300">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b pb-4 border-theme-border">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-lg">Past Entries</h3>
+              <h3 className="text-lg font-bold text-theme-blue dark:text-white">Past Entries</h3>
               <button
                 onClick={() => loadEntries(currentPage, itemsPerPage)}
                 disabled={loading}
-                className={`p-1.5 rounded-lg transition-colors duration-200 ${
-                  darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+                className={`p-2 rounded-full transition-colors duration-200 ${
+                  darkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-orange-50 text-theme-orange'
                 }`}
                 title="Refresh entries"
               >
@@ -391,31 +393,27 @@ const JournalScreen: React.FC = () => {
             
             {/* Date Filtering Inputs */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="date"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  className={`p-1.5 border rounded text-xs outline-none ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
-                  }`}
+                  className="p-2 border border-theme-border rounded-xl text-xs outline-none focus:ring-2 focus:ring-theme-blue bg-theme-surface text-theme-text-primary"
                   placeholder="Start date"
                 />
-                <span className="text-gray-400 text-xs">to</span>
+                <span className="text-gray-400 text-xs font-semibold">to</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  className={`p-1.5 border rounded text-xs outline-none ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'
-                  }`}
+                  className="p-2 border border-theme-border rounded-xl text-xs outline-none focus:ring-2 focus:ring-theme-blue bg-theme-surface text-theme-text-primary"
                   placeholder="End date"
                 />
               </div>
               {(startDate || endDate) && (
                 <button
                   onClick={clearFilters}
-                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                  className="p-2 rounded-full hover:bg-theme-border text-theme-text-secondary"
                   title="Clear Filters"
                 >
                   <X size={14} />
@@ -425,11 +423,11 @@ const JournalScreen: React.FC = () => {
           </div>
 
           {loading && entries.length === 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[0, 1, 2].map(i => <EntrySkeleton key={i} darkMode={darkMode} />)}
             </div>
           ) : entries.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
+            <div className="text-center py-12 text-theme-text-secondary font-medium">
               No entries found. Start by writing your first journal notes above!
             </div>
           ) : (
@@ -437,23 +435,19 @@ const JournalScreen: React.FC = () => {
               {entries.map(entry => (
                 <div 
                   key={entry.id} 
-                  className={`p-4 border rounded-xl relative transition-all ${
-                    darkMode 
-                      ? 'border-gray-700 bg-gray-900/50 hover:bg-gray-900' 
-                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100/50'
-                  }`}
+                  className="p-5 border border-theme-border/50 rounded-2xl relative transition-all duration-200 bg-theme-surface hover:shadow-md"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl" role="img" aria-label="mood">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-3xl" role="img" aria-label="mood">
                         {getMoodEmoji(entry.mood)}
                       </span>
                       <div>
-                        <span className="font-semibold text-sm">
+                        <span className="font-bold text-sm text-theme-blue dark:text-white">
                           Mood: {entry.mood}/5
                         </span>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
-                          <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-theme-text-secondary mt-0.5">
+                          <span className="flex items-center gap-1 font-semibold">
                             <Calendar size={12} />
                             {new Date(entry.date).toLocaleDateString(undefined, {
                               weekday: 'short',
@@ -478,8 +472,8 @@ const JournalScreen: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleEdit(entry)}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-200 text-gray-600'
+                        className={`p-2 rounded-full transition-colors ${
+                          darkMode ? 'hover:bg-slate-800 text-slate-350' : 'hover:bg-orange-50 text-theme-orange'
                         }`}
                         title="Edit Entry"
                       >
@@ -487,8 +481,8 @@ const JournalScreen: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(entry.id)}
-                        className={`p-1.5 rounded-lg transition-colors text-red-500 ${
-                          darkMode ? 'hover:bg-gray-750' : 'hover:bg-red-50'
+                        className={`p-2 rounded-full transition-colors text-red-500 ${
+                          darkMode ? 'hover:bg-red-950/40' : 'hover:bg-red-50'
                         }`}
                         title="Delete Entry"
                       >
@@ -499,9 +493,7 @@ const JournalScreen: React.FC = () => {
                   
                   {/* Formatted rich text content */}
                   <div 
-                    className={`text-sm leading-relaxed whitespace-normal break-words ProseMirror-static ${
-                      darkMode ? 'text-gray-200' : 'text-gray-700'
-                    }`}
+                    className="text-sm leading-relaxed whitespace-normal break-words ProseMirror-static text-theme-text-secondary"
                     dangerouslySetInnerHTML={{ __html: entry.text }}
                   />
                 </div>

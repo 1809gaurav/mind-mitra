@@ -1,42 +1,54 @@
-import React, { useContext } from 'react';
-import { AppContext } from '../../context/AppContext';
+import React from 'react';
 
 const TrendsScreen: React.FC = () => {
-  const { darkMode } = useContext(AppContext);
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6`}>
+    <div className={`min-h-screen bg-theme-bg text-theme-text-primary p-6`}>
       <div className="max-w-md mx-auto">
-        <h2 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>Mood Trends</h2>
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg mb-6`}>
-          <div className="h-48 flex items-end space-x-2 mb-4">
+        <div className="text-center mb-8">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-theme-surface border border-theme-border rounded-full shadow-sm text-[10px] font-extrabold uppercase tracking-wider text-theme-orange mb-3">
+            📊 Analytics
+          </span>
+          <h2 className="text-3xl font-extrabold text-theme-blue dark:text-white tracking-tight leading-tight">Mood Trends</h2>
+        </div>
+
+        <div className="app-card p-6 md:p-8 mb-6">
+          <h3 className="text-lg font-bold mb-6 text-theme-blue dark:text-white">Activity Chart</h3>
+          <div className="h-48 flex items-end space-x-2 mb-8 px-2 border-b border-theme-border pb-4">
             {[4, 3, 5, 2, 4, 5, 3, 4, 2, 5, 4, 3, 5].map((height, i) => (
-              <div
-                key={i}
-                className="bg-gradient-to-t from-blue-500 to-purple-500 rounded-t flex-1"
-                style={{ height: `${height * 20}%` }}
-              />
+              <div key={i} className="flex-1 flex flex-col items-center h-full justify-end">
+                <div
+                  className="bg-gradient-to-t from-theme-blue to-theme-orange rounded-t-full w-full max-w-[12px] shadow-sm hover:opacity-90 transition-opacity"
+                  style={{ height: `${height * 20}%` }}
+                />
+              </div>
             ))}
           </div>
-          <div className="flex justify-center space-x-3 mb-4">
-            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">Week</button>
-            <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm">Month</button>
-            <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm">Custom</button>
+
+          <div className="flex justify-center space-x-3 mb-6">
+            <button className="px-5 py-2 bg-theme-orange text-white rounded-full text-xs font-bold shadow-sm hover:bg-theme-orange-hover hover:scale-105 transition-all">Week</button>
+            <button className="px-5 py-2 bg-theme-surface border border-theme-border text-theme-text-primary rounded-full text-xs font-semibold hover:border-theme-orange hover:text-theme-orange transition-all">Month</button>
+            <button className="px-5 py-2 bg-theme-surface border border-theme-border text-theme-text-primary rounded-full text-xs font-semibold hover:border-theme-orange hover:text-theme-orange transition-all">Custom</button>
           </div>
-          <button className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors duration-300">
+
+          <button className="w-full app-btn-pill-primary py-3 px-6 text-sm font-bold">
             Export/Share
           </button>
         </div>
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}>
-          <h3 className={`font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Insights</h3>
-          <div className="space-y-3">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <p className="text-sm text-green-700">📈 Your mood has improved 15% this week!</p>
+
+        <div className="app-card p-6 md:p-8">
+          <h3 className="text-lg font-bold mb-6 text-theme-blue dark:text-white">Insights</h3>
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/30 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-sm font-semibold flex items-center gap-2.5">
+              <span className="text-lg">📈</span>
+              <p>Your mood has improved 15% this week!</p>
             </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">🌅 You feel best in the mornings</p>
+            <div className="p-4 rounded-2xl bg-blue-50 dark:bg-slate-800/40 border border-blue-100/30 dark:border-slate-700/30 text-blue-800 dark:text-blue-300 text-sm font-semibold flex items-center gap-2.5">
+              <span className="text-lg">🌅</span>
+              <p>You feel best in the mornings</p>
             </div>
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <p className="text-sm text-yellow-700">💭 Journaling helps boost your mood</p>
+            <div className="p-4 rounded-2xl bg-orange-50 dark:bg-amber-950/20 border border-orange-100/30 dark:border-amber-900/30 text-orange-850 dark:text-orange-300 text-sm font-semibold flex items-center gap-2.5">
+              <span className="text-lg">💭</span>
+              <p>Journaling helps boost your mood</p>
             </div>
           </div>
         </div>
