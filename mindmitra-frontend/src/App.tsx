@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import MindMitraApp from "./components/MindMitraApp";
+import NotFoundPage from "./components/NotFoundPage";
 import AdminScreen from "./components/screens/AdminScreen";
 import ForgotPasswordScreen from "./components/screens/ForgotPasswordScreen";
 import LandingPage from "./components/screens/LandingPage";
@@ -16,8 +17,8 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
         {/* Admin panel — protected inside AdminScreen itself */}
         <Route path="/admin" element={<AdminScreen />} />
-        {/* All other paths go to the existing app (its own screen-switcher) */}
-        <Route path="*" element={<MindMitraApp />} />
+        {/* Unknown routes show 404 */}
+        <Route path="/*" element={<NotFoundPage />} />
       </Routes>
     </AppProvider>
   );
