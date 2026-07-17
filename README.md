@@ -33,7 +33,7 @@ Backend (FastAPI)
 * **File Storage:** ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Storage**
 * **AI/ML:** Transformers, DeepFace, VADER
 * **Background Tasks:** ![Celery](https://img.shields.io/badge/Celery-%2337814A.svg?style=flat-square&logo=celery&logoColor=white) with ![Redis](https://img.shields.io/badge/Redis-%23DD0031.svg?style=flat-square&logo=redis&logoColor=white)
-* **Messaging:** Twilio SMS, SMTP Email
+* **Messaging:** Twilio SMS, SMTP Email,messanger
 * **Real-time:** WebSocket support
 
 ## 📦 Installation
