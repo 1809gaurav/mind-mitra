@@ -2,7 +2,7 @@
 """
 MindMitra Backend Startup Script
 This script helps you start the MindMitra backend in development mode.
-use Wsl And Linux For spped 
+use Wsl And Linux For speed 
 """
 
 import os
