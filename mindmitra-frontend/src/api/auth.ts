@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 export interface LoginResponse {
   access_token: string;
@@ -45,12 +45,18 @@ export interface TokenValidationResponse {
  * Authenticate against the existing FastAPI backend.
  * Uses OAuth2PasswordRequestForm (application/x-www-form-urlencoded).
  * The backend field is named `username` per the OAuth2 spec — we pass the email there.
+ *
+ * Tags the request with `_skipAuthRefresh` so a bad login (401) doesn't trigger
+ * the refresh interceptor — there's no session to refresh yet.
  */
 export const loginUser = (email: string, password: string) =>
-  axios.post<LoginResponse>(
+  apiClient.post<LoginResponse>(
     '/api/v1/auth/login',
     new URLSearchParams({ username: email, password }),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      _skipAuthRefresh: true,
+    },
   );
 
 export const registerUser = (data: {
@@ -58,18 +64,18 @@ export const registerUser = (data: {
   name: string;
   password: string;
   role?: string;
-}) => axios.post<UserProfile>('/api/v1/auth/register', { ...data, role: data.role ?? 'user' });
+}) => apiClient.post<UserProfile>('/api/v1/auth/register', { ...data, role: data.role ?? 'user' }, { _skipAuthRefresh: true });
 
 export const getProfile = (token: string) =>
-  axios.get<UserProfile>('/api/v1/auth/profile', { headers: authHeader(token) });
+  apiClient.get<UserProfile>('/api/v1/auth/profile', { headers: authHeader(token) });
 
 export const updateProfile = (payload: ProfileUpdatePayload, token: string) =>
-  axios.put<UserProfile>('/api/v1/auth/profile', payload, { headers: authHeader(token) });
+  apiClient.put<UserProfile>('/api/v1/auth/profile', payload, { headers: authHeader(token) });
 
 export const uploadProfilePicture = (file: File, token: string) => {
   const formData = new FormData();
   formData.append('file', file);
-  return axios.post<UserProfile>('/api/v1/auth/profile/picture', formData, {
+  return apiClient.post<UserProfile>('/api/v1/auth/profile/picture', formData, {
     headers: {
       ...authHeader(token),
       'Content-Type': 'multipart/form-data',
@@ -78,15 +84,16 @@ export const uploadProfilePicture = (file: File, token: string) => {
 };
 
 export const requestPasswordReset = (email: string) =>
-  axios.post<MessageResponse>('/api/v1/auth/forgot-password', { email });
+  apiClient.post<MessageResponse>('/api/v1/auth/forgot-password', { email }, { _skipAuthRefresh: true });
 
 export const validateResetToken = (token: string) =>
-  axios.get<TokenValidationResponse>('/api/v1/auth/reset-password/validate', {
+  apiClient.get<TokenValidationResponse>('/api/v1/auth/reset-password/validate', {
     params: { token },
+    _skipAuthRefresh: true,
   });
 
 export const resetPassword = (token: string, new_password: string) =>
-  axios.post<MessageResponse>('/api/v1/auth/reset-password', {
+  apiClient.post<MessageResponse>('/api/v1/auth/reset-password', {
     token,
     new_password,
-  });
+  }, { _skipAuthRefresh: true });

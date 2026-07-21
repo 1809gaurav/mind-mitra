@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 export const sendChatMessage = async (message: string, token: string) =>
-  axios.post('/api/v1/chat', { message }, { headers: { Authorization: `Bearer ${token}` } }); 
+  apiClient.post('/api/v1/chat', { message }, { headers: { Authorization: `Bearer ${token}` } });
