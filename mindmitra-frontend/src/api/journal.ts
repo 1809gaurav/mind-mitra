@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,16 +134,16 @@ export const fetchJournalEntries = async (
 
 /** Create a new journal entry (emotion analysis happens server-side) */
 export const saveJournalEntry = async (entry: JournalEntryCreate, token: string) =>
-  axios.post<JournalEntryResponse>('/api/v1/journal', entry, authHeaders(token));
+  apiClient.post<JournalEntryResponse>('/api/v1/journal', entry, authHeaders(token));
 
 /** Fetch a single journal entry by ID */
 export const fetchJournalEntry = async (entryId: string, token: string) =>
-  axios.get<JournalEntryResponse>(`/api/v1/journal/${entryId}`, authHeaders(token));
+  apiClient.get<JournalEntryResponse>(`/api/v1/journal/${entryId}`, authHeaders(token));
 
 /** Update a journal entry */
 export const updateJournalEntry = async (entryId: string, update: JournalEntryUpdate, token: string) =>
-  axios.put<JournalEntryResponse>(`/api/v1/journal/${entryId}`, update, authHeaders(token));
+  apiClient.put<JournalEntryResponse>(`/api/v1/journal/${entryId}`, update, authHeaders(token));
 
 /** Delete a journal entry */
 export const deleteJournalEntry = async (entryId: string, token: string) =>
-  axios.delete(`/api/v1/journal/${entryId}`, authHeaders(token));
+  apiClient.delete(`/api/v1/journal/${entryId}`, authHeaders(token));

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 export interface PlatformStats {
   total_users: number;
@@ -16,9 +16,9 @@ export interface JournalEntry {
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 export const fetchAdminStats = (token: string) =>
-  axios.get<PlatformStats>('/api/v1/admin/stats', { headers: authHeader(token) });
+  apiClient.get<PlatformStats>('/api/v1/admin/stats', { headers: authHeader(token) });
 
 export const fetchRecentJournals = (token: string, limit = 10) =>
-  axios.get<JournalEntry[]>(`/api/v1/admin/journals?limit=${limit}`, {
+  apiClient.get<JournalEntry[]>(`/api/v1/admin/journals?limit=${limit}`, {
     headers: authHeader(token),
   });
