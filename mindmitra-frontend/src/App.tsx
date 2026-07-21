@@ -5,6 +5,7 @@ import AdminScreen from "./components/screens/AdminScreen";
 import ForgotPasswordScreen from "./components/screens/ForgotPasswordScreen";
 import LandingPage from "./components/screens/LandingPage";
 import ResetPasswordScreen from "./components/screens/ResetPasswordScreen";
+import NotificationPrompt from "./components/NotificationPrompt";
 import { AppProvider } from "./context/AppContext";
 
 export default function App() {
@@ -20,6 +21,9 @@ export default function App() {
         {/* Unknown routes show 404 */}
         <Route path="/*" element={<NotFoundPage />} />
       </Routes>
+      {/* Persistent banner — pushes the user toward enabling background
+          SOS notifications (issue #119). */}
+      <NotificationPrompt />
     </AppProvider>
   );
 }

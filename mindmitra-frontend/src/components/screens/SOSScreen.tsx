@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
+import { showLocalNotification, getPermissionStatus, isGranted } from '../../api/notifications';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -20,6 +21,7 @@ const SOSScreen: React.FC = () => {
   const [countdown, setCountdown] = useState(0);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [holdProgress, setHoldProgress] = useState(0);
+  const [permissionGranted, setPermissionGranted] = useState<boolean>(false);
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const HOLD_DURATION = 2000; // 2 seconds to confirm
 
@@ -47,6 +49,16 @@ const SOSScreen: React.FC = () => {
   useEffect(() => {
     fetchCooldown();
   }, [fetchCooldown]);
+
+  // Refresh notification-permission status on focus so the inline badge stays
+  // honest if the user toggled it in browser settings while the app was
+  // backgrounded.
+  useEffect(() => {
+    setPermissionGranted(isGranted());
+    const handler = () => setPermissionGranted(isGranted());
+    window.addEventListener('focus', handler);
+    return () => window.removeEventListener('focus', handler);
+  }, []);
 
   // Countdown timer
   useEffect(() => {
@@ -108,6 +120,18 @@ const SOSScreen: React.FC = () => {
         const data = await res.json();
         setResult({ type: 'success', message: data.message });
         await fetchCooldown();
+        // Issue #119: fire an OS-level notification so the alert surfaces even
+        // if the user has navigated away or the tab is backgrounded. Permission
+        // gating happens inside the helper — no need for an if-check here.
+        void showLocalNotification({
+          title: 'SOS alert sent',
+          body:
+            data.message ||
+            'Your emergency contacts have been notified. Stay safe.',
+          tag: 'mindmitra-sos-confirmation',
+          requireInteraction: false,
+          url: '/sos',
+        });
       } else if (res.status === 429) {
         const data = await res.json();
         setResult({ type: 'error', message: data.detail });
@@ -141,12 +165,34 @@ const SOSScreen: React.FC = () => {
         EMERGENCY SOS
       </h2>
       <p
-        className={`text-sm mb-8 text-center max-w-xs ${
+        className={`text-sm mb-4 text-center max-w-xs ${
           darkMode ? 'text-gray-400' : 'text-gray-600'
         }`}
       >
         Hold the button for 2 seconds to send an emergency alert to your contacts
       </p>
+
+      {/* Permission status pill — surfaces the
+          "Notification works in background" acceptance criterion explicitly. */}
+      <div
+        className={`mb-8 px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 ${
+          permissionGranted
+            ? darkMode
+              ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/40'
+              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : darkMode
+              ? 'bg-amber-900/40 text-amber-300 border border-amber-700/40'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+        }`}
+        aria-live="polite"
+      >
+        <span aria-hidden="true">{permissionGranted ? '🔔' : '🔕'}</span>
+        {permissionGranted
+          ? 'Background alerts enabled'
+          : getPermissionStatus() === 'denied'
+            ? 'Background alerts blocked — re-enable in browser settings'
+            : 'Tap "Enable alerts" on the banner to get alerts in background'}
+      </div>
 
       {/* SOS Button */}
       <div className="relative mb-8">
