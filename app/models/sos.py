@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
 import os
@@ -36,8 +36,8 @@ class TriggerType(str, Enum):
 class SOSAlertBase(BaseModel):
     trigger_type: TriggerType
     severity: AlertSeverity
-    reason: Optional[str] = Field(None, max_length=500)
-    emotion_data: Optional[Dict[str, Any]] = {}
+    reason: Optional[str] = Field(default=None, max_length=500)
+    emotion_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class SOSAlertCreate(SOSAlertBase):
@@ -53,12 +53,11 @@ class SOSAlert(SOSAlertBase):
     sent_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SOSAlertList(BaseModel):
-    alerts: list[SOSAlert]
+    alerts: List[SOSAlert]
     total: int
     page: int
     size: int
@@ -70,9 +69,14 @@ class SOSAlertResponse(BaseModel):
     message: str
 
 
-async def send_sos_sms(user):
-    # 1. Validation Check: Ensure an emergency contact is available
-    if not user.emergency_contacts or len(user.emergency_contacts) == 0:
+async def send_sos_sms(user: Any):
+    """Send emergency SOS SMS via Twilio to primary emergency contact."""
+    # 1. Validation Check: Ensure emergency contacts exist
+    contacts = getattr(user, "emergency_contacts", None)
+    if isinstance(user, dict):
+        contacts = user.get("emergency_contacts")
+
+    if not contacts or len(contacts) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No emergency contacts configured in your account profile."
@@ -80,8 +84,12 @@ async def send_sos_sms(user):
 
     # 2. 30-Minute Cooldown Mechanism
     current_time = datetime.utcnow()
-    if getattr(user, "last_sos_sent", None):
-        cooldown_expiry = user.last_sos_sent + timedelta(minutes=SOS_COOLDOWN_MINUTES)
+    last_sos = getattr(user, "last_sos_sent", None)
+    if isinstance(user, dict):
+        last_sos = user.get("last_sos_sent")
+
+    if last_sos:
+        cooldown_expiry = last_sos + timedelta(minutes=SOS_COOLDOWN_MINUTES)
         if current_time < cooldown_expiry:
             remaining_time = int((cooldown_expiry - current_time).total_seconds() / 60)
             raise HTTPException(
@@ -89,15 +97,25 @@ async def send_sos_sms(user):
                 detail=f"SOS limit active. Please wait {remaining_time} minutes before retrying."
             )
 
-    # 3. Target Data Extraction from your list structure
-    primary_contact = user.emergency_contacts[0]
-    target_phone = primary_contact.phone
+    # 3. Target Data Extraction from primary contact
+    primary_contact = contacts[0]
+    if isinstance(primary_contact, dict):
+        target_phone = primary_contact.get("phone")
+    else:
+        target_phone = getattr(primary_contact, "phone", None)
+
+    if not target_phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Primary emergency contact does not have a valid phone number."
+        )
 
     # 4. Integrate Twilio SMS Delivery
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        user_name = getattr(user, "name", None) or (user.get("name") if isinstance(user, dict) else "User")
         message_body = (
-            f"EMERGENCY ALERT: Your contact {user.name} has triggered a CRITICAL "
+            f"EMERGENCY ALERT: Your contact {user_name} has triggered a CRITICAL "
             f"SOS manual alert via MindMitra. Please check on them immediately."
         )
         
@@ -113,9 +131,14 @@ async def send_sos_sms(user):
             detail="Failed to route emergency SMS through network carriers."
         )
 
-    # 5. Save the state changes to your database
-    user.last_sos_sent = current_time
-    if hasattr(user, "save"):
+    # 5. Save the state changes to user
+    if isinstance(user, dict):
+        user["last_sos_sent"] = current_time
+    else:
+        user.last_sos_sent = current_time
+
+    if hasattr(user, "save") and callable(getattr(user, "save")):
         await user.save() 
         
     return "sent", "Emergency SOS broadcast successfully transmitted to contact."
+

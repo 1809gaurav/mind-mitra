@@ -30,8 +30,8 @@ from app.services.journal import journal_service
 logger = get_logger("journal")
 router = APIRouter()
 
-<<<<<<< HEAD
 # ---------------------------------------------------------------------------
+
 # Helpers
 # ---------------------------------------------------------------------------
 
