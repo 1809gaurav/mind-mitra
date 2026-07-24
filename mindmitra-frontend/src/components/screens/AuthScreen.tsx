@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Mail, User, Lock, Leaf } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAppContext } from '../../context/AppContext';
 
 type AuthMode = 'signin' | 'register';
 
 interface AuthScreenProps {
-  onSignIn: (email: string, password: string) => void;
-  onRegister?: (email: string, password: string, name: string) => void;
+  onSignIn: (email: string, password: string) => void | Promise<void>;
+  onRegister?: (email: string, password: string, name: string) => void | Promise<void>;
   loading?: boolean;
 }
 
@@ -112,7 +113,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onSignIn, onRegister, loading =
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'register') {
-      if (password !== confirmPassword) return;
+      if (password !== confirmPassword) {
+        toast.error('Passwords do not match');
+        return;
+      }
       onRegister?.(email, password, name);
       return;
     }
