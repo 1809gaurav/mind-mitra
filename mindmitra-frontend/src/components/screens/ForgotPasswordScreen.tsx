@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Leaf } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { requestPasswordReset } from '../../api/auth';
 import { useAppContext } from '../../context/AppContext';
 
@@ -40,8 +41,11 @@ const ForgotPasswordScreen: React.FC = () => {
     try {
       await requestPasswordReset(email);
       setSubmitted(true);
+      toast.success('Password reset link sent to your email');
     } catch {
-      setError('Something went wrong. Please try again.');
+      const errMsg = 'Something went wrong. Please try again.';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }

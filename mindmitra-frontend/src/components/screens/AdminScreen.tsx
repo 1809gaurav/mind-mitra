@@ -8,6 +8,7 @@ import {
   ShieldAlert,
   Users,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 import { loginUser } from '../../api/auth';
 import {
@@ -79,10 +80,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     setLoading(true);
     try {
       const res = await loginUser(email, password);
+      toast.success('Admin signed in successfully');
       onLogin(res.data.access_token);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Login failed. Please check your credentials.');
+      const errMsg = typeof detail === 'string' ? detail : 'Login failed. Please check your credentials.';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }

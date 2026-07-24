@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Lock, ArrowLeft, Leaf } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { resetPassword, validateResetToken } from '../../api/auth';
 import { useAppContext } from '../../context/AppContext';
 
@@ -57,16 +58,22 @@ const ResetPasswordScreen: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) return;
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
 
     setLoading(true);
     setError('');
     try {
       await resetPassword(token, password);
       setSuccess(true);
+      toast.success('Password reset successfully!');
       setTimeout(() => navigate('/'), 3000);
     } catch {
-      setError('Failed to reset password. The link may have expired.');
+      const errMsg = 'Failed to reset password. The link may have expired.';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }

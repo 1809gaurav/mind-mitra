@@ -12,6 +12,7 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAppContext } from '../../context/AppContext';
 import type { EmergencyContact } from '../../api/auth';
 import {
@@ -82,11 +83,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
     if (!file) return;
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setError('Please choose a JPEG, PNG, WebP, or GIF image.');
+      const errMsg = 'Please choose a JPEG, PNG, WebP, or GIF image.';
+      setError(errMsg);
+      toast.error(errMsg);
       return;
     }
     if (file.size > MAX_IMAGE_SIZE) {
-      setError('Image must be smaller than 5MB.');
+      const errMsg = 'Image must be smaller than 5MB.';
+      setError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
@@ -113,6 +118,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
     const contactError = validateContact();
     if (contactError) {
       setError(contactError);
+      toast.error(contactError);
       return;
     }
 
@@ -153,12 +159,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogoutComplete }) => {
       setUser(profileRes.data);
       setPicturePreview(profileRes.data.profile_picture_url || null);
       setIsEditing(false);
-      setSuccess('Profile saved successfully.');
+      const successMsg = 'Profile saved successfully.';
+      setSuccess(successMsg);
+      toast.success(successMsg);
       await refreshUser();
     } catch (err: unknown) {
       const message =
         axiosErrorMessage(err) || 'Failed to save profile. Please try again.';
       setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

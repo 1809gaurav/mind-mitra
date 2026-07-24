@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { AppContext } from '../../context/AppContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -106,17 +107,25 @@ const SOSScreen: React.FC = () => {
 
       if (res.status === 201) {
         const data = await res.json();
-        setResult({ type: 'success', message: data.message });
+        const successMsg = data.message || 'Emergency SOS alert sent successfully!';
+        setResult({ type: 'success', message: successMsg });
+        toast.success(successMsg);
         await fetchCooldown();
       } else if (res.status === 429) {
         const data = await res.json();
-        setResult({ type: 'error', message: data.detail });
+        const errMsg = data.detail || 'SOS rate limit reached. Please wait.';
+        setResult({ type: 'error', message: errMsg });
+        toast.error(errMsg);
         await fetchCooldown();
       } else {
-        setResult({ type: 'error', message: 'Failed to send SOS. Please try again.' });
+        const errMsg = 'Failed to send SOS. Please try again.';
+        setResult({ type: 'error', message: errMsg });
+        toast.error(errMsg);
       }
     } catch {
-      setResult({ type: 'error', message: 'Network error. Please check your connection.' });
+      const errMsg = 'Network error. Please check your connection.';
+      setResult({ type: 'error', message: errMsg });
+      toast.error(errMsg);
     } finally {
       setLoading(false);
       setHoldProgress(0);

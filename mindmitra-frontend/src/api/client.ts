@@ -1,7 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import toast from 'react-hot-toast';
 
 /**
- * Shared axios instance with JWT auto-refresh.
+ * Shared axios instance with JWT auto-refresh and global error feedback.
  *
  * Issue #118: previously every api file called `axios` directly, which meant a
  * single 401 from a stale access token forced a manual logout. This module
@@ -68,6 +69,7 @@ declare module 'axios' {
   export interface AxiosRequestConfig {
     _retried?: boolean;
     _skipAuthRefresh?: boolean;
+    _skipErrorToast?: boolean;
   }
 }
 
@@ -146,6 +148,15 @@ apiClient.interceptors.response.use(
     if (status === 401 && original && (original.url || '').includes(REFRESH_URL)) {
       clearAuthTokens();
       redirectToLogin();
+    }
+
+    // Trigger error toast for unhandled 5xx server errors or network disconnects
+    if (original && !original._skipErrorToast) {
+      if (!error.response) {
+        toast.error('Network error. Please check your connection.');
+      } else if (status && status >= 500) {
+        toast.error('Server error. Please try again later.');
+      }
     }
 
     return Promise.reject(error);
